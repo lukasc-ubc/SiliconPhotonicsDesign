@@ -78,6 +78,4 @@ shutter_ton=transient_min_time_step;
 shutter_tslew= 0;
 solver_type = "newton";
 generation_filename="Vpd_generation.mat";
-generation_filename_transient="Vpd_generation_100uA.mat";
-generation_filename_responsivity="Vpd_generation_1mA.mat";
 lambda= 1.55e-6;

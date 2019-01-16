@@ -5,7 +5,7 @@ detector_setup_DEVICE_steadystate;
 
 solver_mode=2; #Transient
 
-select('Device region');
+select('CHARGE');
 set('solver mode', solver_mode);
 set('solver type', solver_type);
 set("abs lte limit", abs_lte_limit);
@@ -16,22 +16,17 @@ set("shutter tslew", shutter_tslew);
 set("transient max time step", transient_max_time_step); 
 set("transient min time step",  transient_min_time_step); 
 
-select('pulse');
-matlabload(generation_filename_transient);
-igen = rectilineardataset(x,y,z);
-igen.addparameter('v',0); #dummy
-igen.addattribute('G',G);
-importdataset(igen);
+select('CHARGE::pulse');
 set ("enabled", 1);
+set("scale factor",0.09e-3);  # optical input = 0.09 mW
 
 voltage_table = [0,0];
 time_table= [0, transient_sim_time_max];
 
-setcontact('anode','transient','fixed contact',1);
-setcontact('anode','transient','voltage',-0);
-setcontact('cathode','transient','fixed contact',0);
-setcontact("cathode","transient", "voltage table", voltage_table );
-setcontact("cathode","transient", "voltage time steps", time_table);
+setbc('anode','transient','fixed contact',1);
+setbc('anode','transient','voltage',-0);
+setbc('cathode','transient','fixed contact',0);
+setbc("cathode","transient", "voltage table", voltage_table );
+setbc("cathode","transient", "voltage time steps", time_table);
 
 save("vpd_transient");
-

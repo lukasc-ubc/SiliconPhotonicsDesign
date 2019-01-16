@@ -55,14 +55,14 @@ set('y',y_center); set('y span',y_span);
 set('z',z_center); set('z span',z_span);
 
 # draw simulation region
-adddevice;
+addchargesolver;
 set('min edge length',min_edge_length);
 set('max edge length',max_edge_length);
 set('x',x_center); set('x span',x_span-0.1e-6);
 set('y',y_center); set('y span',y_span);
 set('z',z_center); set('z span',z_span);
 
-addmesh;
+addchargemesh;
 set('name','wg mesh');
 set('max edge length',max_edge_length_override);
 set('x',x_center); set('x span', width_rib);
@@ -159,17 +159,15 @@ set('z min',0); set('z max',thick_slab+thick_rib);
 set('save data',1);
 set('filename',filename_mzi);
 
-# set contacts
-addcontact;		# anode
-setcontact('new_contact','name','anode');
-setcontact('anode','geometry','anode');
-addcontact;		# cathode
-setcontact('new_contact','name','cathode');
-setcontact('cathode','geometry','cathode');
-setcontact('cathode','dc','fixed contact',0);
-setcontact('cathode','dc','range start',voltage_start);
-setcontact('cathode','dc','range stop',voltage_stop);
-setcontact('cathode','dc','range interval',voltage_interval);
+# set contacts (boundary conditions)
+addbc('electrical contact','anode');		# anode
+setbc('anode','geometry','anode:');
+addbc('electrical contact','cathode');		# cathode
+setbc('cathode','geometry','cathode:');
+setbc('cathode','steady state','fixed contact',0);
+setbc('cathode','steady state','range start',voltage_start);
+setbc('cathode','steady state','range stop',voltage_stop);
+setbc('cathode','steady state','range interval',voltage_interval);
 
 # 1) Simulate the DC characteristics of the junction, 
 #    export the spatial charge density, for different voltages
@@ -193,20 +191,20 @@ vdv(2:2:(2*N)) = vdv(1:2:(2*N)) + sign(vmax)*dv;
 switchtolayout;
 
 # set contact bias
-setcontact('cathode','dc','voltage table',vdv);
-setcontact('cathode','dc','dc mode',2);
-setcontact('cathode','dc','fixed contact',0);
+setbc('cathode','steady state','voltage table',vdv);
+setbc('cathode','steady state','dc mode',2);
+setbc('cathode','steady state','fixed contact',0);
 
 # refine mesh for C calculation
-setnamed('wg mesh','enabled',1);
+setnamed('CHARGE::wg mesh','enabled',1);
 
 # don't save this result to file
-setnamed('monitor','save data',0);
+setnamed('CHARGE::monitor','save data',0);
 
 save('pn_wg_cvanalysis.ldev');
 run;
 
-total_charge = getresult('monitor','total_charge');
+total_charge = getresult('CHARGE::monitor','total_charge');
 Qn = e*pinch(total_charge.n);
 Qp = e*pinch(total_charge.p);
 
@@ -235,40 +233,39 @@ set('override mesh order from material database',1);
 set('mesh order',1);
 
 vtest_max = 0.5;
-addcontact;
-setcontact('new_contact','name','r_test');
-setcontact('r_test','geometry','r_contact');
-setcontact('r_test','dc','fixed contact',0);
-setcontact('r_test','dc','range start',0);
-setcontact('r_test','dc','range stop',vtest_max);
-setcontact('r_test','dc','range interval',0.1);
+addbc('electrical contact','r_test');
+setbc('r_test','geometry','r_contact:');
+setbc('r_test','steady state','fixed contact',0);
+setbc('r_test','steady state','range start',0);
+setbc('r_test','steady state','range stop',vtest_max);
+setbc('r_test','steady state','range interval',0.1);
 
-setcontact('anode','dc','fixed contact',1);
-setcontact('cathode','dc','fixed contact',1);
+setbc('anode','steady state','fixed contact',1);
+setbc('cathode','steady state','fixed contact',1);
 
-setnamed('Device region','x',x_center); 
-setnamed('Device region','x span',x_span-0.1e-6);
-setnamed('Device region','solver type','newton');
-setnamed('Device region','x min',x_center);
+setnamed('CHARGE','x',x_center); 
+setnamed('CHARGE','x span',x_span-0.1e-6);
+setnamed('CHARGE','solver type','newton');
+setnamed('CHARGE','x min',x_center);
  
 save('pn_wg_R.ldev');
 run;
 
-test_result = getresult('Device region','r_test');
+test_result = getresult('CHARGE','r_test');
 Itest = pinch(test_result.I);
 Itest_max = abs(Itest(length(Itest)));
-?"R_cathode = " + num2str(vtest_max/Itest_max * getnamed('Device region','norm length')/0.01) + " Ohm-cm";
+?"R_cathode = " + num2str(vtest_max/Itest_max * getnamed('CHARGE','norm length')/0.01) + " Ohm-cm";
 
 switchtolayout;
-setnamed('Device region','x',x_center); 
-setnamed('Device region','x span',x_span-0.1e-6);
-setnamed('Device region','x max',x_center);
+setnamed('CHARGE','x',x_center); 
+setnamed('CHARGE','x span',x_span-0.1e-6);
+setnamed('CHARGE','x max',x_center);
  
 run;
 
-test_result = getresult('Device region','r_test');
+test_result = getresult('CHARGE','r_test');
 Itest = pinch(test_result.I);
 Itest_max = abs(Itest(length(Itest)));
-?"R_anode = " + num2str(vtest_max/Itest_max * getnamed('Device region','norm length')/0.01) + " Ohm-cm";
+?"R_anode = " + num2str(vtest_max/Itest_max * getnamed('CHARGE','norm length')/0.01) + " Ohm-cm";
 
 

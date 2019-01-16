@@ -11,11 +11,12 @@
 
 # 1) Simulate the dark current temperature dependance of the device at v=1 volt
 
-if (0) {
-setcontact('anode','dc','fixed contact',1);
-setcontact('anode','dc','voltage',-1);
-setcontact('cathode','dc','fixed contact',1);
-setcontact('cathode','dc','voltage',0);
+if (0) # set to 1 to run this part, 0 to skip
+{
+setbc('anode','steady state','fixed contact',1);
+setbc('anode','steady state','voltage',-1);
+setbc('cathode','steady state','fixed contact',1);
+setbc('cathode','steady state','voltage',0);
 save("vpd");
 
 Tmin=300;
@@ -24,9 +25,9 @@ T=linspace(Tmin, Tmax,7);
 cathode_I= matrix(length(T));
 for (i=1:length(T)){
   switchtolayout;
-  setnamed('Device region','simulation temperature',T(i));
-  run;
-  cathode_I(i) = getdata("Device region", "cathode.I");
+  setnamed('CHARGE','simulation temperature',T(i));
+  run('CHARGE');
+  cathode_I(i) = getdata("CHARGE", "cathode.I");
 }
 T=T-273.15;
 
@@ -57,17 +58,19 @@ matlabsave ('vpd_darkcurrent_1');
 }
 
 # 2) Dark current versus temperature and versus bias voltage
-if (0) {
+
+if (0) # set to 1 to run this part, 0 to skip
+{
 vmin=0;
 vmax=2;
 vnum=21;
 switchtolayout;
-setcontact('anode','dc','fixed contact',0);
-setcontact('anode','dc','range start',vmin);
-setcontact('anode','dc','range stop',-vmax);
-setcontact('anode','dc','range num points',vnum);
-setcontact('cathode','dc','fixed contact',1);
-setcontact('cathode','dc','voltage',0);
+setbc('anode','steady state','fixed contact',0);
+setbc('anode','steady state','range start',vmin);
+setbc('anode','steady state','range stop',-vmax);
+setbc('anode','steady state','range num points',vnum);
+setbc('cathode','steady state','fixed contact',1);
+setbc('cathode','steady state','voltage',0);
 save("vpd");
 
 Tmin=300;
@@ -76,9 +79,9 @@ T=linspace(Tmin, Tmax,7);
 cathode_I_image= matrix(vnum,length(T));
 for (i=1:length(T)){
   switchtolayout;
-  setnamed('Device region','simulation temperature',T(i));
-  run;
-  cathode_I_image(1:vnum,i) = getdata("Device region", "cathode.I");
+  setnamed('CHARGE','simulation temperature',T(i));
+  run('CHARGE');
+  cathode_I_image(1:vnum,i) = getdata("CHARGE", "cathode.I");
 }
 
 if (unfold_sim) {
@@ -98,26 +101,29 @@ matlabsave ('vpd_darkcurrent_2');
 
 
 # 3) Simulate the responsivity under illumination
-if (1) {
+
+if (0) # set to 1 to run this part, 0 to skip
+{
 switchtolayout;
-select("pulse");
+select("CHARGE::pulse");
 set("enabled", 1);
+set("scale factor",0.9e-3);  # optical input = 0.9 mW
 vmin=-0.2;
 vmax=2;
 vnum=23;
 
-setcontact('anode','dc','fixed contact',0);
-setcontact('anode','dc','range start',-vmin);
-setcontact('anode','dc','range stop',-vmax);
-setcontact('anode','dc','range num points',vnum);
-setcontact('cathode','dc','fixed contact',1);
-setcontact('cathode','dc','voltage',0);
+setbc('anode','steady state','fixed contact',0);
+setbc('anode','steady state','range start',-vmin);
+setbc('anode','steady state','range stop',-vmax);
+setbc('anode','steady state','range num points',vnum);
+setbc('cathode','steady state','fixed contact',1);
+setbc('cathode','steady state','voltage',0);
 save("vpd");
 
 Pin=0.9e-3; # Watts
 switchtolayout;
-setnamed('Device region','simulation temperature',300);
-run;
+setnamed('CHARGE','simulation temperature',300);
+run('CHARGE');
 
 liow_fig15_pvpd = [ -0.2027,0.3591; -0.1748,0.4163;
 -0.1503,0.4701; -0.1258,0.5157; -0.09895,0.5621;
@@ -134,7 +140,7 @@ liow_fig15_pvpd = [ -0.2027,0.3591; -0.1748,0.4163;
 1.9982,1.0030];
 nliowR = size(liow_fig15_pvpd); nliowR = nliowR(1);
  
-I=-getdata("Device region", "anode.I");
+I=-getdata("CHARGE", "anode.I");
 if (unfold_sim) {
   I = 2*I;
 }

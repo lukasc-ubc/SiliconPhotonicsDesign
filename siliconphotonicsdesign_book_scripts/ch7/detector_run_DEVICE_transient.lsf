@@ -11,13 +11,13 @@ v_list = [0, -0.5, -1, -2];
 for (i=1:length(v_list)) {
 
 switchtolayout;
-setcontact('anode','transient','voltage', v_list(i));
-?V=getcontact('anode','transient','voltage');
+setbc('anode','transient','voltage', v_list(i));
+?V=getbc('anode','transient','voltage');
 
-run;
+run('CHARGE');
 
-I=getdata("Device region", "cathode.I");
-t=getdata("Device region", "cathode.t");
+I=getdata("CHARGE", "cathode.I");
+t=getdata("CHARGE", "cathode.t");
  
 if (unfold_sim) {
   I = 2*I;
@@ -49,4 +49,3 @@ legend(num2str(V), "3dB line ");
 
 matlabsave('vpd_transient'  + num2str(V));
 }
-

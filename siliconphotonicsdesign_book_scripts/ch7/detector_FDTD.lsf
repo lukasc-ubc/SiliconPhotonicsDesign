@@ -141,7 +141,7 @@ set('z', z_ge);
 set("export filename", generation_filename);
 set("periods", 1);
 set("average dimension", "y");
-set("source intensity", 6e7);  # power*sourceintensity(f)/sourcepower(f)
+set("source intensity", 6.66667e10);  # for unity source power
 set("make plots", 1);
 set("down sample x", 1);
 set("down sample y", 1);
@@ -176,4 +176,3 @@ xz_E=pinch(abs(getdata('xz','Ex')));
 image(xz_x,xz_z,xz_E);
 
 matlabsave('vpd');
-

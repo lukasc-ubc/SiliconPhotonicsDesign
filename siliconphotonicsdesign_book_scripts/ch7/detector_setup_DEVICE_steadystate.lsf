@@ -40,7 +40,7 @@ set('z',si_z); set('z span',si_2_thickness);
 
 addpyramid;
 set('name','Ge');   #germanium
-set('material','Ge (Germanium) thin film 2um');
+set('material','Ge (Germanium) thin film');
 set('override mesh order from material database',1); set('mesh order',2);
 set('x',x_center); set('x span bottom',ge_width_x_bottom); set('x span top',ge_width_x_top);
 set('y',ge_y); set('y span bottom',ge_width_y_bottom); set('y span top',ge_width_y_top);
@@ -58,7 +58,7 @@ z_pec=z_ge+ge_thickness/2+(4*contact_thickness)/2;
 set('z',z_pec); set('z span',4*contact_thickness);
 
 # draw simulation region
-adddevice;
+addchargesolver;
 set('min edge length',min_edge_length);
 set('max edge length',max_edge_length);
 if (unfold_sim) {
@@ -78,11 +78,12 @@ set('transient min time step',transient_min_time_step);
 set('transient max time step',transient_max_time_step);
 
 addimportgen;
-matlabload(generation_filename_responsivity);
+matlabload(generation_filename);
 igen = rectilineardataset(x,y,z);
-igen.addparameter('v',0); #dummy
+igen.addparameter('v',0); # dummy
 igen.addattribute('G',G);
 importdataset(igen);
+set("scale factor",1e-3); # input optical power (Watt)
 set ("enabled", 0);
 set("name", "pulse");
 
@@ -93,7 +94,7 @@ set('dopant type','p'); # p type
 set('x',x_center); set('x span',x_span);
 set('y',y_center); set('y span',y_span);
 set('z',center_pepi); set('z span',thick_pepi);
-set('concentration',pepi_concentration  );
+set('concentration',pepi_concentration);
 
 adddiffusion;	
 set('name','p-');
@@ -121,14 +122,11 @@ set('ref concentration',reference_conc_n_contact);
 
 # set contacts
 
-addcontact;		# anode
-setcontact('new_contact','dc','name','anode');
-setcontact('anode','geometry','silicon');
-addcontact;		# cathode
-setcontact('new_contact','dc','name','cathode');
-setcontact('cathode','geometry','cathode');
-setcontact('cathode','dc','fixed contact',0);
+addbc('electrical contact','anode');		# anode
+setbc('anode','geometry','silicon:');
+addbc('electrical contact','cathode');		# cathode
+setbc('cathode','geometry','cathode:');
+setbc('cathode','steady state','fixed contact',0);
 
 save('vpd');
-
 
