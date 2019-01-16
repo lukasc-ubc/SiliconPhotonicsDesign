@@ -56,7 +56,7 @@ ax(2).YTick = 1.4:0.2:2.6;
 
 % Plot the product of the two fields
 subplot (2,2,1); Exy=TM_E_TEwg(:,1)*(TE_Eslab(1,:));
-contourf(xwg*1e9,xslab*1e9,abs(Exy)/max(max(Exy))')
+contourf(xwg*1e9,xslab*1e9,abs(Exy')/max(max(Exy)))
 xlabel ('X (nm)','FontSize',Fontsize);
 ylabel ('Y (nm)','FontSize',Fontsize);
 set (gca, 'FontSize',Fontsize);
