@@ -1,0 +1,52 @@
+# Trransient electrical simulation of the detector
+# Step 2b: in Lumerical DEVICE; this script accomplishes:
+# 1) Set up and calculate normalized response of the transient simulation
+
+# First run this to configure:
+# detector_setup_DEVICE_transient;
+# then check parameters
+
+v_list = [0, -0.5, -1, -2];
+
+for (i=1:length(v_list)) {
+
+switchtolayout;
+setcontact('anode','transient','voltage', v_list(i));
+?V=getcontact('anode','transient','voltage');
+
+run;
+
+I=getdata("Device region", "cathode.I");
+t=getdata("Device region", "cathode.t");
+ 
+if (unfold_sim) {
+  I = 2*I;
+}
+
+# Take the central derivative of the step to get the impulse response
+N= length(t);
+th = t(2:(N-1));
+Nh = N-2;
+dI = I(3:N) - I(1:Nh);
+dt = t(3:N) - t(1:Nh);
+dIdt = dI/dt;
+
+
+# Interpolate the impulse response to plot it on the same figure as the step
+t_interp = th(1):0.1e-12:th(Nh);  #uniform time grid
+dIdt_interp = interp(dIdt, th,t_interp);
+plotxy(t_interp*1e12,dIdt_interp/max(dIdt_interp),t*1e12,I/max(I),"time (ps)","Normalized amplitude (a.u) ");
+   
+# take fft of the original impulse response to get the frequency response
+H = fft(dIdt_interp,2,1);
+w = fftw(t_interp - t_interp(1),2,1);
+Nw = length(w);
+three_dB=w>0;
+three_dB=three_dB*0.001;
+plot(1e-9*w(2:Nw)/2/pi,20*log10(abs(H(2:Nw))/max(abs(H))) , log10(three_dB(2:Nw)), 
+     "Frequency (GHz)", " Normalized response (dB)");
+legend(num2str(V), "3dB line ");
+
+matlabsave('vpd_transient'  + num2str(V));
+}
+

@@ -1,0 +1,202 @@
+####################################################################
+#
+#	spot size converter
+#
+# Copyright 2014 Lumerical Solutions
+####################################################################
+switchtolayout; newproject;
+clear; deleteall; cleardcard; 
+
+filename = "spot_size_converter";
+
+#Define materials  ################################################
+mat_sub = "SiO2 (Glass) - Palik" ; 
+mat_Si = "Si (Silicon) - Palik"; 
+mat_Ox = "SiO2 (Glass) - Palik"; 
+SiON_index = 1.5; 
+
+# ********************************************************************************
+## Geometry
+# x-axis: propagation
+# y-z: cross section of wg
+# ********************************************************************************
+#add substrate
+addrect;
+select("rectangle");
+set("name","substrate");
+set("x span",20e-6); 
+set("x",0); #period on either side. 
+set("y", 0);
+set("y span", 10e-6);
+set("z",-2.5e-6);
+set("z span", 5e-6); 
+set("material", mat_sub);
+unselectall;
+
+#add input waveguide
+addrect;
+select("rectangle");
+set("name","input");
+set("x span",5e-6); 
+set("x",-7.5e-6); 
+set("y", 0);
+set("y span",0.4e-6);
+set("z",0.1e-6);
+set("z span", 0.2e-6); 
+set("material",mat_Si);
+unselectall;
+
+
+#add taper
+lx_top = 0.4e-6;
+lx_base = 0.08e-6;
+y_span = 10e-6; 
+z_span = 0.2e-6;  
+z = 0.1e-6; 
+x = 0; 
+y = 0; 
+
+V=matrix(4,2);
+V(1,1:2)=[-lx_base/2,-y_span/2];
+V(2,1:2)=[-lx_top/2,y_span/2];
+V(3,1:2)=[lx_top/2,y_span/2];
+V(4,1:2)=[lx_base/2,-y_span/2];
+addpoly;
+  set("x",0);
+  set("y",0);
+  set("z",0.1e-6);
+  set("z span",z_span);
+  set("vertices",V);
+  set("material",mat_Si);
+set("name","taper");
+set("first axis", "z"); 
+set("rotation 1", 90); 
+
+
+#add low index polymer
+addrect;
+select("rectangle");
+set("name","SiON");
+set("x span",15e-6); 
+set("x",2.5e-6); 
+set("y", 0);
+set("y span",3e-6);
+set("z",1.5e-6);
+set("z span", 3e-6); 
+set("index",SiON_index);
+set("override mesh order from material database",1);
+set("mesh order",3); 
+unselectall;
+
+# ********************************************************************************
+# Add EME solver
+# ********************************************************************************
+addeme;
+set("solver type", "3D: X Prop"); 
+set("background index", 1.465); 
+set("wavelength", 1.5e-6); 
+set("z", 0.5e-6); 
+set("z span", 7e-6); 
+set("y",0); 
+set("y span",5.5e-6); 
+set("x min", -8e-6); 
+set("number of cell groups", 3); 
+set("display cells", 1); 
+set("number of modes for all cell groups", 20); 
+set("number of periodic groups", 1); 
+set("energy conservation", "make passive"); # or "none", "conserve energy"
+set("subcell method", [0;1;0]); 
+set("cells", [1;19; 1]); 
+set("group spans",[3e-6; 10e-6; 3e-6]); 
+
+#update port configuration
+setnamed("EME::Ports::port_1", "y", 0);
+setnamed("EME::Ports::port_1", "y span", 5.5e-6);
+setnamed("EME::Ports::port_1", "z", 0);
+setnamed("EME::Ports::port_1", "z span", 7e-6);
+setnamed("EME::Ports::port_1", "mode selection", "fundamental mode");
+
+setnamed("EME::Ports::port_2", "y", 0);
+setnamed("EME::Ports::port_2", "y span", 5.5e-6);
+setnamed("EME::Ports::port_2", "z", 0);
+setnamed("EME::Ports::port_2", "z span", 7e-6);
+setnamed("EME::Ports::port_2", "mode selection", "fundamental mode");
+
+
+addmesh; #mesh override. 
+set("x",0); set("x span", 10e-6); 
+set("y", 0); set("y span", 0.45e-6); 
+set("z", 0.1e-6); set("z span", 0.2e-6); 
+set("set mesh multiplier",1); 
+set("y mesh multiplier",5); 
+set("z mesh multiplier",5); 
+
+
+addemeindex;
+set("name", "index"); 
+set("x",0); set("x span", 20e-6); 
+set("y", 0); set("y span", 6e-6); 
+set("z", 0.1e-6);
+
+addemeprofile; 
+set("name", "profile");
+set("monitor type", "2D Y-normal");  
+set("x",0); set("x span", 20e-6); 
+set("y", 0); 
+set("z", 0.5e-6);set("z span",8e-6); 
+
+
+# ********************************************************************************
+# Run: calculate modes
+# ********************************************************************************
+save(filename);
+run;
+
+# ********************************************************************************
+# Propagate fields
+# ********************************************************************************
+
+setemeanalysis("source port", "port 1"); 
+
+setemeanalysis("Propagation sweep", 1); 
+setemeanalysis("parameter", "group span 2");
+setemeanalysis("start", 10e-6);  
+setemeanalysis("stop", 200e-6);
+step=10;
+setemeanalysis("interval", step);  
+
+emesweep;
+
+S = getemesweep('S');
+
+# ********************************************************************************
+# Account for fiber overlap
+# ********************************************************************************
+switchtolayout;
+cleardcard;
+addfde;
+set("solver type","2D X normal");
+set("background index", 1.465); 
+set("z", 0.5e-6); 
+set("z span", 7e-6); 
+set("y",0); 
+set("y span",5.5e-6); 
+set("x", 8e-6); 
+
+setanalysis("wavelength", 1.5e-6); 
+findmodes;
+
+# Create fiber mode
+setanalysis("NA",0.4);
+setanalysis("beam direction","2D X normal");
+createbeam;
+
+setanalysis("shift d-card center",1);
+out = overlap("mode1","gaussian1",0,0,getnamed("SiON","z"));
+power = out(2);
+
+# ********************************************************************************
+# Plot result
+# ********************************************************************************
+plot(S.group_span_2,abs(S.s21)^2,(abs(S.s21)^2)*out(2),"taper length (um)","Transmission");
+legend('Transmission into SiON mode', 'Transmission into fibre');

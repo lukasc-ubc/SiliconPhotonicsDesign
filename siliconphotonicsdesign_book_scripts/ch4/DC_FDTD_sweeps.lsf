@@ -1,0 +1,87 @@
+# Perform 3D FDTD simulations for the directional coupler
+
+DC_GDS_import;
+
+DC_length_list=[0:1:25]*1e-6;
+#DC_length_list=[5]*1e-6;
+DC_length=0;
+
+setglobalsource("wavelength start",1500e-9);  
+setglobalsource("wavelength stop",1600e-9);
+setglobalmonitor("use source limits",0); 
+setglobalmonitor("frequency points",1);
+setglobalmonitor("minimum wavelength",1550e-9);	
+setglobalmonitor("maximum wavelength",1550e-9);
+
+# add mode source:
+addmode; set("name", "source");
+set("injection axis", "x-axis"); 
+set("direction", "forward");
+set("y", 1e-6); set("y span", 1.5e-6); 
+set("x", -5e-6 - DC_length/2);
+set("z min", -FDTD_below); set("z max", maxvzWAFER+FDTD_above);
+updatesourcemode;
+
+addpower;
+set("name", "through"); 
+set("monitor type", "2D X-normal"); 
+set("y", 1e-6); set("y span", 1.4e-6); 
+set("x", 5e-6 + DC_length/2);
+set("z min", -FDTD_below); set("z max", maxvzWAFER+FDTD_above);
+
+addpower;
+set("name", "cross"); 
+set("monitor type", "2D X-normal"); 
+set("y", -1e-6); set("y span", 1.4e-6); 
+set("x", 5e-6 + DC_length/2);
+set("z min", -FDTD_below); set("z max", maxvzWAFER+FDTD_above);
+
+
+for (i=1:length(DC_length_list))
+{
+  switchtolayout;
+  DC_length=DC_length_list(i);
+  # stretch the coupler both to the left and right (keep symmetric at x=0)
+  select("source");   set("x", -5e-6 - DC_length/2);
+  select("through");  set("x", 5e-6 + DC_length/2);
+  select("cross");    set("x", 5e-6 + DC_length/2);
+  select("Oxide");
+  set("x min", minvxWAFER-DC_length/2); set("x max", maxvxWAFER+ DC_length/2); 
+  select("Slab");
+  set("x min", minvxWAFER-DC_length/2); set("x max", maxvxWAFER+ DC_length/2); 
+  select("Cladding");
+  set("x min", minvxWAFER-DC_length/2); set("x max", maxvxWAFER+ DC_length/2); 
+  select("FDTD");
+  set("x min", minvxWAFER+2e-6-DC_length/2);  set("x max", maxvxWAFER-2e-6+DC_length/2);
+  groupscope("GDS_LAYER_1");  selectall;
+  set("x",-DC_length/2,1);  set("x",-DC_length/2,2);
+  set("x", DC_length/2,3);  set("x", DC_length/2,4);
+  groupscope("::model");
+  select("wg1");
+  if (getnumber==0) {   addrect; set("name", "wg1");}
+  set("x min", -DC_length/2); set("y min", 0.1e-6);
+  set("x max",  DC_length/2); set("y max", 0.6e-6);
+  set("z min", 0);  set("z max", Thickness_Si);
+  set("material", Material_Si);
+  select("wg2");
+  if (getnumber==0) {   addrect; set("name", "wg2");}
+  set("x min", -DC_length/2); set("y max", -0.1e-6);
+  set("x max",  DC_length/2); set("y min", -0.6e-6);
+  set("z min", 0);  set("z max", Thickness_Si);
+  set("material", Material_Si);
+
+  save("DC_"+num2str(DC_length)+"_FDTD.fsp");
+  run;
+}
+
+Tthrough=matrix(length(DC_length_list));
+Tcross=matrix(length(DC_length_list));
+for (i=1:length(DC_length_list))
+{
+  DC_length=DC_length_list(i);
+  load("DC_"+num2str(DC_length)+"_FDTD.fsp");
+  Tthrough(i)=transmission("through");
+  Tcross(i)=transmission("cross");
+}
+plot(DC_length_list,[Tthrough,Tcross]);
+matlabsave("DC_FDTD_mesh" +num2str(MESH_ACCURACY) +".mat", DC_length_list, Tthrough, Tcross);

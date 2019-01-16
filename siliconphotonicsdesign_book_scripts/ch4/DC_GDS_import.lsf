@@ -1,0 +1,80 @@
+# DC_GDS_import.lsf - Script to import GDS for 3D FDTD simulations in Lumerical Solutions
+
+newproject;
+filename = "DC.gds";   	cellname = "DC_0";
+
+Material_Clad = "SiO2 (Glass) - Const";
+Material_Ox  = "SiO2 (Glass) - Const";
+Material_Si   = "Si (Silicon) - Dispersive & Lossless";
+materials;     # run script to add materials
+
+Thickness_Si=0.22e-6;	Etch2=130e-9;
+
+FDTD_above=300e-9;	# Extra simulation volume added
+FDTD_below=300e-9;
+
+minvxWAFER=1e9; minvyWAFER=1e9; 
+maxvxWAFER=-1e9; maxvyWAFER=-1e9;  # design extent
+maxvzWAFER=Thickness_Si;
+
+# Waveguide     Si 220nm    
+n = gdsimport(filename, cellname, 1, Material_Si, 0, Thickness_Si);
+if (n==0) { delete; } else {
+	groupscope("::model::GDS_LAYER_1");
+	set("script","");
+	selectall;
+	set('material', Material_Si);
+	set('z span',Thickness_Si); 	 set('z',0);
+	selectpartial("poly");
+	minvx=1e9; minvy=1e9; maxvx=-1e9; maxvy=-1e9;
+	for (i=1:getnumber) {	# find the extent of this GDS layer.
+		v=get("vertices",i);	  a=size(v);
+		minvx = min ( [minvx, min( v(1:a(1), 1 ))]);
+        minvy = min ( [minvy, min( v(1:a(1), 2 ))]);
+		maxvx = max ( [maxvx, max( v(1:a(1), 1 ))]);
+		maxvy = max ( [maxvy, max( v(1:a(1), 2 ))]);
+	}
+	minvxWAFER = min ( [minvx, minvxWAFER]);	# save design extent
+	minvyWAFER = min ( [minvy-2.25e-6, minvyWAFER]);
+	maxvxWAFER = max ( [maxvx, maxvxWAFER]);
+	maxvyWAFER = max ( [maxvy+2.25e-6, maxvyWAFER]);
+	groupscope("::model");
+}
+
+# Waveguide – Rib   Si partial etch 2 (130~\SI{}{\nano\meter} deep)
+addrect; set("name", "Slab");
+set("x min", minvxWAFER); set("y min", minvyWAFER);
+set("x max", maxvxWAFER); set("y max", maxvyWAFER);
+set("z min", 0);  set("z max", Thickness_Si-Etch2);
+set("material", Material_Si);
+set("alpha",0.2);
+
+addrect; set("name", "Oxide");  # Buried Oxide
+set("x min", minvxWAFER); set("y min", minvyWAFER);
+set("x max", maxvxWAFER); set("y max", maxvyWAFER);
+set("z min", -2e-6);	 set("z max", 0);
+set("material", Material_Ox);	 set("alpha",0.2);
+
+addrect; set("name", "Cladding");   # Cladding 
+set("x min", minvxWAFER); set("y min", minvyWAFER);
+set("x max", maxvxWAFER); set("y max", maxvyWAFER);
+set("z min", 0);	 set("z max", 2.3e-6);
+set("material", Material_Clad);	 set("alpha",0.1);
+set("override mesh order from material database", 1);
+set("mesh order", 4);	# make the cladding the background
+
+addfdtd;  # FDTD simulation volume
+set("x min", minvxWAFER+2e-6); set("y min", minvyWAFER+1.5e-6);
+set("x max", maxvxWAFER-2e-6); set("y max", maxvyWAFER-1.5e-6);
+set("z min", -FDTD_below);	 set("z max", maxvzWAFER+FDTD_above);
+set("mesh accuracy", 3);
+set("x min bc", "PML"); set("x max bc", "PML");
+set("y min bc", "metal"); set("y max bc", "PML");
+set("z min bc", "metal"); set("z max bc", "metal");
+
+addmesh;  # mesh override in the coupler gap.
+set("x min", minvxWAFER+2e-6); set("y min", -100e-9);
+set("x max", maxvxWAFER-2e-6); set("y max", 100e-9);
+set("z min", 0);      set("z max", Thickness_Si);                  
+set("override y mesh",1); set("override z mesh",0); set("override x mesh",0);
+set("set equivalent index",1);	 set("equivalent y index",5);

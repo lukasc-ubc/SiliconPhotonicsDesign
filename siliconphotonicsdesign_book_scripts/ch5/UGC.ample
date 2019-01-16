@@ -1,0 +1,41 @@
+// Design a grating coupler using analytic equations, effective index calculations
+// Create the layout for the grating coupler
+function UGC(query: optional boolean {default = false}),INVISIBLE
+{
+	if(query) { return[@point, @block, []] } 
+	local device = $get_device_iobj();
+	local wl = $get_property_value(device,"wl");  // wavelength
+	local etch_depth = $get_property_value(device,"etch_depth");
+	local Si_thickness = $get_property_value(device,"Si_thickness");
+	local incident_angle = $get_property_value(device,"incident_angle");
+	local wg_width = $get_property_value(device,"wg_width");
+	local n_cladd = $get_property_value(device,"n_cladd");
+	local pl = $get_property_value(device,"pl");   // polarization "TE" or "TM"
+	local ff = $get_property_value(device,"ff");   // fill factor  
+	build_UGC(wl,etch_depth,Si_thickness,incident_angle,wg_width,n_cladd,pl, ff);
+}
+
+function build_UGC(wl, etch_depth, Si_thickness, incident_angle, wg_width, n_cladd, pl, ff)
+{
+	local neff=effective_index(wl, etch_depth, Si_thickness, n_cladd, pl, ff);
+	local ne_fiber=1;  // effective index of the mode in the air
+	local period= wl/ (neff- sin(rad(incident_angle)) *ne_fiber);                          
+	$writes_file($stdout,"Grating_Period is:", period, "\n");  
+	$add_point_device("Draw_GC", @block, [], [@to, [0, 0], @rotation, 0.0, @flip, "none"], [["ff", ff], ["incident_angle", incident_angle], ["n_clad", n_cladd], ["neff", neff], ["period", period], ["segnum", "100"], ["wg_width", wg_width], ["wl", wl]], @placed);
+	//output port
+	$unselect_all(@nofilter);
+	$add_shape([[-1, -wg_width/2], [0, wg_width/2]], "Si", @both); 
+	$make_port(@signal, @bidirectional,"opt_in");
+}
+
+function UGC_parameters( 
+	layer:optional number {default=1}, 
+	wl:optional number {default=1.55}, 
+	etch_depth:optional number {default=0.07}, 
+	Si_thickness:optional number {default=0.22},
+	incident_angle:optional number {default=20},
+	wg_width:optional number {default=0.5}, 
+	n_cladd:optional number {default=1.44},
+	pl:optional string {default="TE"},
+	ff:optional number {default=0.5}  ) 
+{ return [ ["wl",$g(wl)], ["etch_depth",$g(etch_depth)], ["Si_thickness",$g(Si_thickness)], ["incident_angle",$g(incident_angle)], ["wg_width",$g(wg_width)], ["n_cladd",$g(n_cladd)], ["pl",pl],  ["ff",$g(ff)] ]; }

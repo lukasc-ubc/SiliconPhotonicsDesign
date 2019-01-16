@@ -1,0 +1,92 @@
+// Create the layout for the grating coupler
+function Draw_GC(query: optional boolean {default = false}),INVISIBLE
+{
+	if(query) { return[@point, @block, []] } 
+	local device = $get_device_iobj();
+	local wl = $get_property_value(device,"wl");  // wavelength
+	local period = $get_property_value(device,"period");
+	local ff = $get_property_value(device,"ff");  // fill factor
+	local n_clad = $get_property_value(device,"n_clad");
+	local incident_angle = $get_property_value(device,"incident_angle");
+	local wg_width = $get_property_value(device,"wg_width"); 
+	local neff = $get_property_value(device,"neff"); 
+	local segnum = $get_property_value(device,"segnum"); // number of points in the curves
+	build_Draw_GC(wl, period, ff, n_clad, incident_angle, wg_width, neff, segnum);
+}
+
+function build_Draw_GC( wl,period,ff, n_clad, incident_angle, wg_width, neff,segnum)
+{
+	 //Save Original user settings
+	local selectable_types_orig = $get_selectable_types();
+	local selectable_layers_orig = $get_selectable_layers();
+	local autoselect_orig = $get_autoselect();
+
+	//Set up selection settings
+	$set_selectable_types(@replace, [@shape, @path, @pin, @overflow,@row, @property_text, @instance, @array, @device, @via_object, @text, @region, @bisector, @channel, @slice], @both);
+	$set_selectable_layers(@replace, ["0-4096"]);
+	$set_autoselect(@true);
+
+	local seg_points = segnum+1;  
+	local arc_vec = $create_vector(2*seg_points),taper_vec = $create_vector(seg_points+2);
+	local nf=1.44, e =nf*sin(rad(incident_angle))/neff,angle_e=38, gc_number=$round(18/period);  
+	local i=0,j=0,k=0,x_r=0,y_r=0,x_l=0,y_l=0,t_lx=0,t_ly=0,phi0=0,phi1=0,phi2=0,r=0, r_taper=0;
+	local grating_width=period*ff;
+	local N=$round((18+period-grating_width)*(1+e)*neff/wl);
+
+	for(k=0;k<seg_points;k=k+1)
+	{  
+		  phi0=rad(180-angle_e/2+angle_e/segnum*k);
+		  r_taper=(N*wl/neff)/(1-e*cos(phi0));
+		  t_lx=r_taper*cos(phi0);
+		  t_ly=r_taper*sin(phi0);
+		 
+		  taper_vec[k] = [t_lx,t_ly];	
+		  taper_vec[seg_points] = [0,0-1/2*wg_width];	 
+		  taper_vec[seg_points+1] = [0,0+1/2*wg_width];		  
+	}
+	$add_shape(taper_vec,"Si");  
+	 
+	for(j=0;j<gc_number;j=j+1)
+	{ 
+		for(i=0;i<seg_points;i=i+1)
+		{
+			phi1=rad(180-angle_e/2+angle_e/segnum*i); 
+			r=(N*wl/neff)/(1-e*cos(phi1));
+			x_r=(r-grating_width+(j+1)*period)*cos(phi1);
+			y_r=(r-grating_width+(j+1)*period)*sin(phi1);
+			arc_vec[i] = [x_r,y_r];
+
+			phi2=rad(180+angle_e/2-angle_e/segnum*i);  		  
+			x_l=(r+(j+1)*period)*cos(phi2);
+			y_l=(r+(j+1)*period)*sin(phi2); 
+			arc_vec[seg_points+i] = [x_l,y_l];				
+		}	
+		$add_shape(arc_vec,"Si");
+	}
+	
+	// generate the shallow etch area
+	$add_shape([[-42,15],[-12,15],[-12,-15],[-42,-15]],'SiEtch1');
+
+	//output port
+	$unselect_all(@nofilter);
+	$add_shape([[-1, -wg_width/2], [0, wg_width/2]], "Si", @both); 
+	$make_port(@signal, @bidirectional,"opt_in");
+
+	//Restore original user settings
+	$set_selectable_types(@replace, (selectable_types_orig[0]==void)?[]:selectable_types_orig[0],selectable_types_orig[1]);
+	$set_selectable_layers(@replace, selectable_layers_orig);
+	$set_autoselect(autoselect_orig);
+}
+
+function Draw_GC_parameters( 
+	layer:optional number {default=1}, 
+	wl:optional number {default=1.55}, 
+	period:optional number {default=0.66},
+	ff:optional number {default=0.5},
+	n_clad:optional number {default=1.44},
+	incident_angle:optional number {default=20},
+	wg_width:optional number {default=0.5},
+	neff:optional string {default=2.8},
+	segnum:optional string {default=100})
+{ return [ ["wl",$g(wl)], ["period",$g(period)], ["ff",$g(ff)], ["n_clad",$g(n_clad)], ["incident_angle",$g(incident_angle)], ["wg_width",$g(wg_width)], ["neff",$g(neff)], ["segnum",$g(segnum)] ]; }
+

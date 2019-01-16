@@ -1,0 +1,26 @@
+# wg_2D_neff_sweep_width.lsf - perform mode calculations on the waveguide
+
+wg_2D;     # run the script to draw the waveguide and set up the simulation
+
+modes=4;          # modes to output
+set("number of trial modes",modes+2);
+
+# define parameters to sweep
+width_ridge_list=[.2:.02:.8]*1e-6; # sweep waveguide width
+
+neff = matrix (length(width_ridge_list), modes );
+TE_pol = matrix (length(width_ridge_list), modes );
+
+for(ii=1:length(width_ridge_list))  {
+	switchtolayout;
+	setnamed("waveguide","y span", width_ridge_list(ii));
+	setnamed("slab","z max", thick_Slab);
+	n=findmodes;
+	for (m=1:modes) {   # extract mode data     
+		neff (ii,m) = abs( getdata ("FDE::data::mode"+num2str(m),"neff") );
+		TE_pol(ii,m) = getdata("FDE::data::mode"+num2str(m),"TE polarization fraction");
+	}
+}
+plot (width_ridge_list, neff (1:length(width_ridge_list), 1));  # plots the 1st mode.
+plot (width_ridge_list, neff);
+

@@ -1,0 +1,16 @@
+# wg_1D_slab_convergence_z.lsf - perform convergence test, Lumerical MODE
+
+wg_1D_slab;      # Draw waveguides and setup the simulation
+
+zspan_list=[.4:0.2:2]*1e-6;     # sweep for the simulation region
+neff=matrix(length(zspan_list),2); # initialize empty matrix
+for (x=1:length(zspan_list)) {
+	switchtolayout;
+	select("MODE");
+	set("z span", zspan_list(x));
+	n=findmodes;
+	neff(x,1)=getdata ("MODE::data::mode1","neff");
+	neff(x,2)=getdata ("MODE::data::mode2","neff");
+} 
+plot(zspan_list,real(neff)); legend('Mode 1','Mode 2');
+matlabsave ('out/wg_slab_convergence_z'); 

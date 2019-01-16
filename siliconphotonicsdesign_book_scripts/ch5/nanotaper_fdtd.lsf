@@ -1,0 +1,129 @@
+# FDTD Solutions script
+# Draw the silicon nano-taper, setup 3D FDTD simulations
+# inputs example:
+wg_w1=500e-9; wg_w2=180e-9; wg_t=220e-9; wg_l=20e-6;
+BC='Metal';  # Metal is faster than PML, error introduced is < 0.02 dB in coupling.
+Wavelength=1.55e-6;
+PLOT_FIELD=1;
+MESH=2;  
+# Mesh	coupling dB   (convergence test at 1550 nm, L=10um)
+# 1	-1.62
+# 2	-1.55
+# 3	-1.55
+
+newproject;  redrawoff;
+
+addpyramid; set('name','Si taper');
+set('x span bottom',wg_t); set('x span top',wg_t);
+set('y span bottom',wg_w1); set('y span top',wg_w2);
+set('z span',wg_l);
+set('first axis','y'); set('rotation 1',90);
+set('x',-wg_l/2); set('z',wg_t/2); set('y',0);
+set('material','Si (Silicon) - Palik');
+
+addrect; set('name','Oxide');
+set('x min',-wg_l); set('x max',1e-6);
+set('z min',-2e-6); set('z max',2.1e-6);
+set('y span', 10e-6);
+set('material','SiO2 (Glass) - Palik');
+set('override mesh order from material database',1);
+set('mesh order',3);  set('alpha',0.2);
+
+addrect; set('name','SiSubstrate');
+set('x min',-wg_l); set('x max',1e-6);
+set('z min',-3e-6); set('z max',-2e-6);
+set('y span', 10e-6);
+set('material','Si (Silicon) - Palik');
+set('override mesh order from material database',1);
+set('mesh order',3);  set('alpha',0.2);
+
+addfdtd; #  create simulate mesh
+set('x min',-wg_l+0.5e-6); set('x max',2e-6);
+set('z span',6e-6); set('y span', 6e-6);
+set('simulation time', 200e-15+wg_l/c*4.5);
+set('mesh type','auto non-uniform'); set('mesh accuracy',MESH);
+set('x min bc', 'PML'); set('x max bc', 'PML');
+#set('y min bc', 'Anti-Symmetric'); set('y max bc', BC); # problem with field import into MODE
+set('y min bc', BC); set('y max bc', BC);
+set('z min bc', BC); set('z max bc', BC);
+
+
+if(1) {
+addmesh;  # mesh override, higher resolution in the waveguide.
+set('y span',wg_w1); set('x span',0); set('z span', wg_t*2); set('z',wg_t/2);
+set('set equivalent index', 1);
+set('override y mesh',1); set('equivalent y index',5);
+set('override z mesh',1); set('equivalent z index',5);
+}
+
+addmode;
+set('injection axis','x-axis'); set('set wavelength',1);
+set('center wavelength', Wavelength); set('wavelength span', 200e-9);
+set('x', -wg_l+1e-6); set('y',0); set('y span', 2e-6);
+set('z', wg_t/2); set('z span', 2e-6);
+updatesourcemode;
+
+if (PLOT_FIELD) {
+	addpower; set('name','XY');
+	set('override global monitor settings',1);
+	set('use source limits',0); set('frequency points',1);
+	set('wavelength center', Wavelength);
+	set('monitor type', '2D Z-normal');
+	set('x min',-wg_l+0.5e-6); set('x max',2e-6);
+	set('y span', 6e-6); set('z',wg_t/2);
+
+	addpower; set('name','XZ');
+	set('override global monitor settings',1);
+	set('use source limits',0); set('frequency points',1);
+	set('wavelength center', Wavelength);
+	set('monitor type', '2D Y-normal');
+	set('x min',-wg_l+0.5e-6); set('x max',2e-6);
+	set('z span', 6e-6);
+	
+	addpower; set('name','reflected');   # about 5% reflection observed from the nano-tip & oxide.
+	set('monitor type', '2D X-normal');
+	set('x', -wg_l+0.8e-6); set('z span',6e-6); set('y span', 6e-6);
+	set('override global monitor settings',1);
+	set('use source limits',0); set('frequency points',1);
+	set('wavelength center', Wavelength);
+}
+
+addpower; set('name','output');
+set('monitor type', '2D X-normal');
+set('x', 1.05e-6); set('z span',6e-6); set('y span', 6e-6);
+# Necessary to export only one wavelength point; difficult in multi-wavelength overlap integrals
+set('override global monitor settings',1);
+set('use source limits',0); set('frequency points',1);
+set('wavelength center', Wavelength);
+
+
+save('nanotaper');
+run;
+
+
+if (PLOT_FIELD) {
+	Exy=sqrt(abs(getdata('XY','Ex'))^2 + abs(getdata('XY','Ey'))^2 + abs(getdata('XY','Ez'))^2);  
+	x=getdata('XY','x'); y=getdata('XY','y');
+	image(x,y,Exy/max(Exy));  # plot |E|
+
+	Exz=sqrt(abs(getdata('XZ','Ex'))^2 + abs(getdata('XZ','Ey'))^2 + abs(getdata('XZ','Ez'))^2);  
+	z=getdata('XZ','z');
+	image(x,z,Exz/max(Exz));  # plot |E|
+	
+	Eo=sqrt(abs(getdata('output','Ex'))^2 + abs(getdata('output','Ey'))^2 + abs(getdata('output','Ez'))^2);  
+	y=getdata('output','y'); z=getdata('output','z');
+	image(y,z,Eo/max(Eo));  # plot |E|
+
+	Eff = farfield3d("output",1);
+	ux = farfieldux("output",1); uy = farfielduy("output",1);
+	image(ux,uy,Eff,"","","Far field of output","polar");
+	
+	plot(ux*90, Eff(75,1:150)/max(Eff(75,1:150)), Eff(1:150,75)/max(Eff(1:150,75)),"Angle","Far field intensity");
+	legend ('Vertical far-field','Horizontal far-field');
+}
+
+savedcard("nanotaper","::model::output");
+matlabsave ("nanotaper_output");
+
+
+

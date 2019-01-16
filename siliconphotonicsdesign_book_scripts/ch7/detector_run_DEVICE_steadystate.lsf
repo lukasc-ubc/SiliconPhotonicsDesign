@@ -1,0 +1,150 @@
+# Steady State electrical simulation of the detector
+# Step 2a: in Lumerical DEVICE; this script accomplishes:
+# 1) import generation rate data from FDTD
+# 2) Calculate the dark current and temperature dependance of it
+# 3) Calculate responsivity of the steady state simulation
+
+# First run this to configure:
+# detector_setup_DEVICE_steadystate;
+# then check parameters
+
+
+# 1) Simulate the dark current temperature dependance of the device at v=1 volt
+
+if (0) {
+setcontact('anode','dc','fixed contact',1);
+setcontact('anode','dc','voltage',-1);
+setcontact('cathode','dc','fixed contact',1);
+setcontact('cathode','dc','voltage',0);
+save("vpd");
+
+Tmin=300;
+Tmax=360;
+T=linspace(Tmin, Tmax,7);
+cathode_I= matrix(length(T));
+for (i=1:length(T)){
+  switchtolayout;
+  setnamed('Device region','simulation temperature',T(i));
+  run;
+  cathode_I(i) = getdata("Device region", "cathode.I");
+}
+T=T-273.15;
+
+liow_fig13a_uA = [
+24.599056603773583,0.3131313106003993;
+34.009433962264154,0.5223345074266843;
+43.490566037735846,0.8213531263060052;
+52.971698113207545,1.3973305213983964;
+62.382075471698116,2.1124494476604796;
+71.86320754716981,3.387774774440254;
+81.34433962264151,5.021745520652797];
+liow_fig13a_uA = [ 24.599,0.31313; 34.009,0.52233; 43.490,0.82135; 
+52.971,1.39733; 62.382,2.11244; 71.863,3.38777; 81.344,5.02174];
+nfig13a = size(liow_fig13a_uA); nfig13a = nfig13a(1);
+
+refdataT = liow_fig13a_uA(1:nfig13a,1);
+refdataIuA = liow_fig13a_uA(1:nfig13a,2);
+refdataIuA_interp=interp(refdataIuA,refdataT,T);
+ 
+if (unfold_sim) {
+  cathode_I = 2*cathode_I;
+}
+
+plot(T,cathode_I*1e6,(refdataIuA_interp), "Temperature in degrees Celsius", "Dark current in uA at V=-1(v)");
+legend("DEVICE simulation","Reference, p+ Si w/ anneal");
+
+matlabsave ('vpd_darkcurrent_1');
+}
+
+# 2) Dark current versus temperature and versus bias voltage
+if (0) {
+vmin=0;
+vmax=2;
+vnum=21;
+switchtolayout;
+setcontact('anode','dc','fixed contact',0);
+setcontact('anode','dc','range start',vmin);
+setcontact('anode','dc','range stop',-vmax);
+setcontact('anode','dc','range num points',vnum);
+setcontact('cathode','dc','fixed contact',1);
+setcontact('cathode','dc','voltage',0);
+save("vpd");
+
+Tmin=300;
+Tmax=360;
+T=linspace(Tmin, Tmax,7);
+cathode_I_image= matrix(vnum,length(T));
+for (i=1:length(T)){
+  switchtolayout;
+  setnamed('Device region','simulation temperature',T(i));
+  run;
+  cathode_I_image(1:vnum,i) = getdata("Device region", "cathode.I");
+}
+
+if (unfold_sim) {
+  cathode_I_image = 2*cathode_I_image;
+}
+
+T=T-273.15;
+V=linspace(vmin,vmax,vnum);
+ 
+T2=linspace(min(T),max(T),100);
+V2=linspace(min(V),max(V),200);
+Ik2=interp(cathode_I_image,V,T,V2,T2);
+image(V2,T2,1e6*Ik2,"photodetector bias voltage (V)","Temperature in degrees Celsius", "Dark Current (uA)");
+
+matlabsave ('vpd_darkcurrent_2');
+}
+
+
+# 3) Simulate the responsivity under illumination
+if (1) {
+switchtolayout;
+select("pulse");
+set("enabled", 1);
+vmin=-0.2;
+vmax=2;
+vnum=23;
+
+setcontact('anode','dc','fixed contact',0);
+setcontact('anode','dc','range start',-vmin);
+setcontact('anode','dc','range stop',-vmax);
+setcontact('anode','dc','range num points',vnum);
+setcontact('cathode','dc','fixed contact',1);
+setcontact('cathode','dc','voltage',0);
+save("vpd");
+
+Pin=0.9e-3; # Watts
+switchtolayout;
+setnamed('Device region','simulation temperature',300);
+run;
+
+liow_fig15_pvpd = [ -0.2027,0.3591; -0.1748,0.4163;
+-0.1503,0.4701; -0.1258,0.5157; -0.09895,0.5621;
+-0.04545,0.6428; -0.005244,0.6965; 0.03146,0.7407;
+0.07342,0.7845; 0.1282,0.8245; 0.1958,0.8687;
+0.2692,0.9002; 0.3426,0.9195; 0.4160,0.9307;
+0.4895,0.9357; 0.5629,0.9429; 0.6363,0.9482;
+0.7097,0.9522; 0.7832,0.9550; 0.8566,0.9586;
+0.9300,0.9585; 1.0034,0.9654; 1.0769,0.9700;
+1.1503,0.9732; 1.2237,0.9719; 1.2944,0.9736;
+1.3706,0.9805; 1.4440,0.9828; 1.5174,0.9856;
+1.5909,0.9887; 1.6643,0.9914; 1.7377,0.9924;
+1.8111,0.9972; 1.8846,0.9987; 1.9580,1.0005;
+1.9982,1.0030];
+nliowR = size(liow_fig15_pvpd); nliowR = nliowR(1);
+ 
+I=-getdata("Device region", "anode.I");
+if (unfold_sim) {
+  I = 2*I;
+}
+I_norm=I/max(I);
+V=linspace(vmin,vmax,vnum);
+Resp=I/Pin;
+plotxy(V,I_norm,
+       liow_fig15_pvpd(1:nliowR,1),liow_fig15_pvpd(1:nliowR,2),
+       "photo detector bias voltage(v)","I_(photo,norm)=I_(photo)/I_(norm)  a.u ");
+plot(V,Resp,"photo detector bias voltage(v)","Responsivity (A/W) ");
+matlabsave('vpd_responsivity');
+}
+

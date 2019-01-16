@@ -1,0 +1,47 @@
+# S Parameter extraction for the grating coupler
+# Port 1 = fibre
+# Port 2 = waveguide
+
+newproject;
+redrawoff;
+
+GC_init;
+GC_setup_fibre; 
+
+#from waveguide to fibre
+select("waveguide_source");  set("enabled",1);
+select("fibre::fibre_mode"); set("enabled",0);
+run;
+
+T = getresult("waveguide","expansion for T");
+fibre = getresult("fibre::fibre_modeExpansion","expansion for fibre_top");
+f = T.f;
+S22 = T.b / T.a;
+S12 = fibre.a*sqrt(fibre.N) / (T.a*sqrt(T.N));
+
+#from fibre to waveguide
+switchtolayout;
+select("waveguide_source");  set("enabled",0);
+select("fibre::fibre_mode"); set("enabled",1);
+run;
+
+T = getresult("waveguide","expansion for T");
+fibre = getresult("fibre::fibre_modeExpansion","expansion for fibre_top");
+S11 = fibre.a / fibre.b;
+S21 =  T.b*sqrt(T.N) / (fibre.b*sqrt(fibre.N));
+
+plot(c/f*1e6,10*log10(abs([S12, S21,S11,S22])),'Wavelength (micron)','Transmission/Reflection (dB)');
+legend('S12','S21','S11','S22');
+plot(c/f*1e6,unwrap(angle([S12, S21,S11,S22])),'Wavelength (micron)','Phase (rad)');
+legend('S12','S21','S11','S22');
+
+# export S parameters for INTERCONNECT
+Sdata = [ f, abs(S11), unwrap(angle(S11)), abs(S21), unwrap(angle(S21)), abs(S12), unwrap(angle(S12)), abs(S22), unwrap(angle(S22)) ];
+
+filename = "GC_Sparam.dat";
+rm(filename);
+format long;
+write(filename,num2str(Sdata));
+format short;
+
+matlabsave ("GC_Sparam");

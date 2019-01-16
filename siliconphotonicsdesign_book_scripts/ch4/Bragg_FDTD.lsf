@@ -1,0 +1,185 @@
+###############################################
+# script file: Bragg_FDTD.lsf
+#
+# Create and simulate a basic Bragg grating
+# Copyright 2014 Lumerical Solutions
+###############################################
+
+# DESIGN PARAMETERS
+###############################################
+thick_Si = 0.22e-6;
+thick_BOX = 2e-6;
+width_ridge = 0.5e-6; # Waveguide width
+Delta_W = 50e-9; # Corrugation width
+L_pd = 324e-9;   # Grating period
+N_gt = 280;      # Number of grating periods
+L_gt = N_gt*L_pd;# Grating length
+W_ox = 3e-6; L_ex = 5e-6; # simulation size margins
+L_total = L_gt+2*L_ex;
+material_Si = 'Si (Silicon) - Dispersive & Lossless';
+material_BOX = 'SiO2 (Glass) - Const'; 
+# Constant index materials lead to more stable simulations
+
+# DRAW
+###############################################
+newproject; switchtolayout; 
+materials;
+
+# Oxide Substrate
+addrect;
+set('x min',-L_ex);	set('x max',L_gt+L_ex);
+set('y',0e-6);	set('y span',W_ox);
+set('z min',-thick_BOX);	set('z max',-thick_Si/2);
+set('material',material_BOX);
+set('name','oxide');
+
+# Input Waveguide
+addrect;
+set('x min',-L_ex);	set('x max',0);
+set('y',0);		set('y span',width_ridge);
+set('z',0);		set('z span',thick_Si);
+set('material',material_Si);
+set('name','input_wg');
+
+# Bragg Gratings
+addrect;
+set('x min',0);	set('x max',L_pd/2);
+set('y',0);		set('y span',width_ridge+Delta_W);
+set('z',0);		set('z span',thick_Si);
+set('material',material_Si);
+set('name','grt_big');
+addrect;
+set('x min',L_pd/2);	set('x max',L_pd);
+set('y',0);		set('y span',width_ridge-Delta_W);
+set('z',0);		set('z span',thick_Si);
+set('material',material_Si);
+set('name','grt_small');
+selectpartial('grt');
+addtogroup('grt_cell');
+select('grt_cell');
+redrawoff;
+for (i=1:N_gt-1) {
+ copy(L_pd);
+}
+selectpartial('grt_cell');
+addtogroup('bragg');
+redrawon;
+
+# Output WG
+addrect;
+set('x min',L_gt);	set('x max',L_gt+L_ex);
+set('y',0);		set('y span',width_ridge);
+set('z',0);		set('z span',thick_Si);
+set('material',material_Si);
+set('name','output_wg');
+
+
+# SIMULATION SETUP
+###############################################
+lambda_min = 1.5e-6;
+lambda_max = 1.6e-6;
+freq_points = 101;
+sim_time = 6000e-15;
+Mesh_level = 2;
+mesh_override_dx = 40.5e-9; # needs to be an integer multiple of the period
+mesh_override_dy = 50e-9;
+mesh_override_dz = 20e-9;
+
+# FDTD
+addfdtd;
+set('dimension','3D');
+set('simulation time',sim_time);
+set('x min',-L_ex+1e-6);	set('x max',L_gt+L_ex-1e-6);
+set('y', 0e-6);		set('y span',2e-6);
+set('z',0);			set('z span',1.8e-6);
+set('mesh accuracy',Mesh_level);
+set('x min bc','PML');		set('x max bc','PML');
+set('y min bc','PML');		set('y max bc','PML');
+set('z min bc','PML');		set('z max bc','PML');
+#add symmetry planes to reduce the simulation time 
+#set('y min bc','Anti-Symmetric'); set('force symmetric y mesh', 1);
+
+# Mesh Override
+if (1){
+addmesh;
+set('x min',0e-6); 	set('x max',L_gt);
+set('y',0); set('y span',width_ridge+Delta_W);
+set('z',0);	set('z span',thick_Si+2*mesh_override_dz);
+set('dx',mesh_override_dx); 
+set('dy',mesh_override_dy);
+set('dz',mesh_override_dz);
+}
+
+# MODE Source
+addmode;
+set('injection axis','x-axis');
+set('mode selection','fundamental mode');
+set('x',-2e-6);		
+set('y',0);	set('y span',2.5e-6);
+set('z',0);	set('z span',2e-6);
+set('wavelength start',lambda_min);
+set('wavelength stop',lambda_max);
+
+# Time Monitors
+addtime;
+set('name','tmonitor_r');
+set('monitor type','point');
+set('x',-3e-6);	set('y',0);	set('z',0);	
+addtime;
+set('name','tmonitor_m');
+set('monitor type','point');
+set('x',L_gt/2); set('y',0); set('z',0);
+addtime;
+set('name','tmonitor_t');
+set('monitor type','point');
+set('x',L_gt+3e-6);	set('y',0);	set('z',0);
+
+# Frequency Monitors
+addpower;
+set('name','t');
+set('monitor type','2D X-normal');
+set('x',L_gt+2.5e-6);	
+set('y',0);	set('y span',2.5e-6);
+set('z',0);	set('z span',2e-6);
+set('override global monitor settings',1);
+set('use source limits',1);
+set('use linear wavelength spacing',1);
+set('frequency points',freq_points);
+
+addpower;
+set('name','r');
+set('monitor type','2D X-normal');
+set('x',-2.5e-6);	
+set('y',0);	set('y span',2.5e-6);
+set('z',0);	set('z span',2e-6);
+set('override global monitor settings',1);
+set('use source limits',1);
+set('use linear wavelength spacing',1);
+set('frequency points',freq_points);
+
+#Top-view electric field profile
+if (0) {addprofile;
+set('name','field');
+set('monitor type','2D Z-normal');
+set('x min',-2e-6);	set('x max',L_gt+2e-6);	
+set('y', 0); set('y span',1.2e-6);
+set('z', 0);
+set('override global monitor settings',1);
+set('use source limits',1);
+set('use linear wavelength spacing',1);
+set('frequency points',21);
+}
+
+# SAVE AND RUN
+###############################################
+save('Bragg_FDTD');
+run;
+
+# Analysis
+###############################################
+transmission_sim=transmission('t');
+reflection_sim=transmission('r');
+wavelength_sim=3e8/getdata('t','f');
+plot(wavelength_sim*1e9, 10*log10(transmission_sim), 10*log10(abs(reflection_sim)), 'wavelength (nm)', 'response');
+legend('T','R');
+matlabsave('Bragg_FDTD');

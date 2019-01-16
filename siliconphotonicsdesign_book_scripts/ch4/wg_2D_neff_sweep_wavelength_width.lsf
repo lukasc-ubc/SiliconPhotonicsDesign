@@ -1,0 +1,34 @@
+# wg_2D_neff_sweep_wavelength_width.lsf - Calculate the wavelength and width dependence of waveguide's neff
+
+wg_2D;  # draw waveguide
+
+# define parameters to sweep
+width_ridge_list=[.4:.05:.61]*1e-6; # sweep waveguide width
+Nf=10;  # number of wavelength points
+
+neff = matrix (length(width_ridge_list), Nf );
+ng = matrix (length(width_ridge_list), Nf );
+for(ii=1:length(width_ridge_list))  {
+	switchtolayout;
+	setnamed("waveguide","y span", width_ridge_list(ii));
+
+	run; mesh;
+	setanalysis('wavelength',1.6e-6);
+	findmodes; selectmode(1);   # find the fundamental mode
+
+	setanalysis("track selected mode",1);
+	setanalysis("number of test modes",5);
+	setanalysis("number of points",Nf);
+	setanalysis("detailed dispersion calculation",1);
+	setanalysis('stop wavelength',1.5e-6);
+	frequencysweep;    # perform sweep of wavelength and plot
+	f=getdata("frequencysweep","f");
+	neff1=getdata("frequencysweep","neff");
+	ng1=c/getdata("frequencysweep","vg");
+	wavelengths=c/f;
+	for (m=1:Nf) {   # extract mode data     
+		neff (ii,m) = abs( neff1(m) );
+		ng (ii,m) = abs( ng1(m) );
+	}
+}
+matlabsave ('wg_2D_neff_sweep_wavelength_width.mat', f, neff, ng, wavelengths, width_ridge_list);

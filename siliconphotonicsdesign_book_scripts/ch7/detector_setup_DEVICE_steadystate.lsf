@@ -1,0 +1,134 @@
+# Steady State electrical simulation of the detector
+#  setup script
+
+newproject; redrawoff;
+
+load ('vpd_materials2'); # thin film materials for Ge
+
+redrawoff;
+
+# modulator geometry variables defined:
+detector_setup_parameters;
+solver_mode=1; #DC
+
+# draw geometry
+addrect; 			# oxide
+set('name','oxide');
+set('material', 'SiO2 (Glass) - Sze');
+set('override mesh order from material database',1); set('mesh order',5);
+set('override color opacity from material database',1); set('alpha',0.3);
+set('x',x_center); set('x span',oxide_width_x);
+set('y',y_center); set('y span',oxide_width_y);
+set('z',0); set('z span',oxide_thickness);
+
+addrect;
+set('name','silicon');   #silicon1
+set('material','Si (Silicon) [CONTACT]');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span',si_1_width_x);
+set('y min',si_1_width_y_min); set('y max',si_1_width_y_max);
+set('z',si_z); set('z span',si_1_thickness);
+
+addrect;
+set('name','silicon');   #silicon2
+set('material','Si (Silicon) [CONTACT]');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span',si_2_width_x);
+set('y min',si_2_width_y_min); set('y max',si_2_width_y_max);
+set('z',si_z); set('z span',si_2_thickness);
+
+
+addpyramid;
+set('name','Ge');   #germanium
+set('material','Ge (Germanium) thin film 2um');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span bottom',ge_width_x_bottom); set('x span top',ge_width_x_top);
+set('y',ge_y); set('y span bottom',ge_width_y_bottom); set('y span top',ge_width_y_top);
+z_ge=(si_z+ge_thickness/2+si_1_thickness/2);
+set('z span',ge_thickness); set('z',z_ge); 
+
+
+addpyramid;
+set('name','cathode');   #Al
+set('material','Al (Aluminium) - CRC');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span bottom',contact_width_x_bottom); set('x span top',contact_width_x_top);
+set('y',contact_y); set('y span bottom',contact_width_y_bottom); set('y span top',contact_width_y_top);
+z_pec=z_ge+ge_thickness/2+(4*contact_thickness)/2;
+set('z',z_pec); set('z span',4*contact_thickness);
+
+# draw simulation region
+adddevice;
+set('min edge length',min_edge_length);
+set('max edge length',max_edge_length);
+if (unfold_sim) {
+  set('x min',x_center); 
+} else {
+  set('x min',x_center - 0.5*x_span+0.1e-6);
+}
+set('x max',x_center + 0.5*x_span-0.1e-6);
+set('y',y_center); 
+set('z min',z_min_region); set('z max',z_max_region);
+set('norm length', norm_length);
+set('solver mode', solver_mode);   
+set('solver type', solver_type);
+set('rel lte limit',rel_lte_limit);
+set('abs lte limit',abs_lte_limit);
+set('transient min time step',transient_min_time_step);
+set('transient max time step',transient_max_time_step);
+
+addimportgen;
+matlabload(generation_filename_responsivity);
+igen = rectilineardataset(x,y,z);
+igen.addparameter('v',0); #dummy
+igen.addattribute('G',G);
+importdataset(igen);
+set ("enabled", 0);
+set("name", "pulse");
+
+# draw doping regions
+adddope;
+set('name','pepi');
+set('dopant type','p'); # p type
+set('x',x_center); set('x span',x_span);
+set('y',y_center); set('y span',y_span);
+set('z',center_pepi); set('z span',thick_pepi);
+set('concentration',pepi_concentration  );
+
+adddiffusion;	
+set('name','p-');
+set('x',x_center_p_contact); set('x span',x_span_p_contact);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_p_contact); set('z span',z_span_p_contact);
+set('dopant type','p');
+set('face type',face_p_contact);
+set('junction width',width_junction_p_contact);
+set('distribution index',diff_dist_fcn_contact);
+set('concentration',surface_conc_p_contact);
+set('ref concentration',reference_conc_p_contact);
+
+adddiffusion;
+set('name','n++');
+set('x',x_center_n_contact); set('x span',x_span_n_contact);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_n_contact); set('z span',z_span_n_contact);
+set('dopant type',"n");
+set('face type',face_n_contact);
+set('junction width',width_junction_n_contact);
+set('distribution index',diff_dist_fcn_contact);
+set('concentration',surface_conc_n_contact);
+set('ref concentration',reference_conc_n_contact);
+
+# set contacts
+
+addcontact;		# anode
+setcontact('new_contact','dc','name','anode');
+setcontact('anode','geometry','silicon');
+addcontact;		# cathode
+setcontact('new_contact','dc','name','cathode');
+setcontact('cathode','geometry','cathode');
+setcontact('cathode','dc','fixed contact',0);
+
+save('vpd');
+
+

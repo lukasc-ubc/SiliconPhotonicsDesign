@@ -1,0 +1,124 @@
+# Calculations for coupling between dissimilar waveguides, in Lumerical MODE
+
+new(1); clear; cleardcard;
+materials;
+
+# Simulation Parameters
+meshsizex = 0.02e-6; 
+meshsizey = 0.02e-6; 
+xrange = 5e-6;
+yrange = 2.75e-6;
+wavelength = 1.55e-6;
+
+# Process Parameters
+material_Clad = "SiO2 (Glass) - Palik";
+material_BOX = "SiO2 (Glass) - Palik";
+material_Si = "Si (Silicon) - Palik";
+
+ridge_thick = 0.22e-6;
+slab_thick = 0;
+wg_width1 = 0.5e-6;
+wg_width2 = 0.4e-6;
+gap = 0.4e-6;
+
+# Draw Cladding
+addrect; set("name","Clad");
+set("material",material_Clad);
+set("y",0); set("y span",yrange+1);
+set("x",0); set("x span",xrange+1);
+
+#Draw Waveguides
+addrect; set("name","WG1");
+set("x min",-gap/2-wg_width1);set("x max",-gap/2);
+set("y min",-ridge_thick/2);set("y max",ridge_thick/2);
+set("material",material_Si);
+
+addrect; set("name","WG2");
+set("x min",gap/2);set("x max",gap/2+wg_width2);
+set("y min",-ridge_thick/2);set("y max",ridge_thick/2);
+set("material",material_Si);
+
+#Mode Solver
+addfde; set("solver type","2D Z Normal");
+set("x",0); set("y",0); set("z",0);
+set("x span",xrange); set("y span",yrange);
+set("wavelength",wavelength);
+set("define x mesh by","maximum mesh step");
+set("define y mesh by","maximum mesh step");
+set("dx",meshsizex); set("dy",meshsizey);
+modes = 2;
+set("number of trial modes",modes);
+
+#Find Mode of Input Waveguide (isolated)
+select("WG1"); set("enabled",1);
+select("WG2"); set("enabled",0);
+findmodes;
+copydcard( "mode1", "modeA");
+BetaA = 1e-6*(2*pi/wavelength)*real(getdata("mode1","neff"));
+
+#Find Mode of 2nd Waveguide (isolated)
+switchtolayout;
+select("WG1"); set("enabled",0);
+select("WG2"); set("enabled",1);
+findmodes;
+copydcard( "mode1", "modeB");
+BetaB = 1e-6*(2*pi/wavelength)*real(getdata("mode1","neff"));
+
+#Find Supermodes and Propagation Constants of dissimilar waveguide system
+switchtolayout;
+select("WG1"); set("enabled",1);
+select("WG2"); set("enabled",1);
+findmodes;
+Beta1 = 1e-6*(2*pi/wavelength)*real(getdata("mode1","neff"));
+Beta2 = 1e-6*(2*pi/wavelength)*real(getdata("mode2","neff"));
+
+#Assume two waveguides are adiabaticaly brought together (or abrupt transition?)
+#Perform Overlap Integrals
+AB1A = overlap("mode1","modeA");
+AB2A = overlap("mode2","modeA");
+
+coeff1 = sqrt(AB1A(2))/sqrt((AB1A(2)+AB2A(2)));
+coeff2 = sqrt(AB2A(2))/sqrt((AB1A(2)+AB2A(2)));
+
+# Power In Each Waveguide vs. Distance, Eigenmode Expansion Method
+L = ((2*pi)/abs((Beta2-Beta1)))*[0:0.001:10];
+ones = matrix(length(L))+1;
+P1 = ones*(abs(coeff1)^4 + abs(coeff2)^4)+2*abs(coeff1)^2*abs(coeff2)^2*cos((Beta2-Beta1)*L);
+P2 = ones-P1;
+plot(L,P1,P2,"Distance (microns)","Transmission"); 
+legend("Waveguide A (EME)","Waveguide B (EME)");
+
+#############################################
+#Coupled-Mode Equation, dissimilar waveguides
+C = abs(Beta2-Beta1)/2;
+temp1=1 + ((BetaA-BetaB)/2/C)^2;
+kappa2 = sin(C*L*sqrt(temp1))^2/temp1;
+t2=1-kappa2;
+
+plotxy(L,P1,L,P2,L,kappa2,L,t2, "Distance (microns)","Transmission"); 
+legend("Waveguide A " +num2str(wg_width1*1e9)+" nm (EME)","Waveguide B " +num2str(wg_width2*1e9)+" nm (EME)","Waveguide A " +num2str(wg_width1*1e9)+" nm (CMT)","Waveguide B " +num2str(wg_width2*1e9)+" nm (CMT)");
+
+################################################# 
+#Compare to coupling between identical waveguides:
+switchtolayout; 
+select("WG2"); set("x max",gap/2+wg_width1);
+
+#Find Supermodes and Propagation Constants
+findmodes;
+Beta1i = 1e-6*(2*pi/wavelength)*real(getdata("mode1","neff"));
+Beta2i = 1e-6*(2*pi/wavelength)*real(getdata("mode2","neff"));
+switchtolayout; 
+
+#Coupled-Mode Equation, dissimilar waveguides
+C = abs(Beta2i-Beta1i)/2;
+kappa2i = sin(C*L)^2;
+t2i=1-kappa2i;
+
+plot(L,P1,P2,kappa2,t2,kappa2i,t2i, "Distance (microns)","Transmission","Gap = " + num2str(gap*1e9)+" nm"); 
+legend("Waveguide A " +num2str(wg_width1*1e9)+" nm (EME)","Waveguide B " +num2str(wg_width2*1e9)+" nm (EME)","Waveguide A " +num2str(wg_width1*1e9)+" nm (CMT)","Waveguide B " +num2str(wg_width2*1e9)+" nm (CMT)", "Waveguide A " +num2str(wg_width1*1e9)+" nm (CMT)","Waveguide B " +num2str(wg_width1*1e9)+" nm (CMT)");
+
+matlabsave('DeltaBeta_gap'+num2str(gap*1e9)+'_wgB'+num2str(wg_width2*1e9));
+
+# Fig 4.19:
+plot(L,P1+1e-6,P2+1e-6,kappa2i+1e-6,t2i+1e-6, "Distance (microns)","Transmission","Gap = " + num2str(gap*1e9)+" nm","log10y"); 
+legend("Waveguide A " +num2str(wg_width1*1e9)+" nm (EME)","Waveguide B " +num2str(wg_width2*1e9)+" nm (EME)", "Waveguide A " +num2str(wg_width1*1e9)+" nm (CMT)","Waveguide B " +num2str(wg_width1*1e9)+" nm (CMT)");

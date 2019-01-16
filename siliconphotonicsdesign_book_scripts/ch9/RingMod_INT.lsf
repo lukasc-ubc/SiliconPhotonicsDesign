@@ -1,0 +1,99 @@
+# Script to build a ring modulator compact model in INTERCONNECT
+# Uses:  
+#       S-Parameters for Directional Coupler
+#       Phase vs. voltage data from PN junction
+# by Jonas Flueckiger
+
+switchtolayout;
+deleteall;
+
+R=15e-6;
+
+#Add Optical Network Analyser 
+elementName = addelement('Optical Network Analyzer');
+setnamed(elementName, 'x position', 200);
+setnamed(elementName,'y position',100);
+setnamed(elementName, 'input parameter', 'center and range');
+setnamed(elementName, 'center frequency', 193.1e12);
+setnamed(elementName, 'frequency range', 10000e9); 
+setnamed(elementName, 'plot kind', 'wavelength');
+setnamed(elementName, 'relative to center', false);
+setnamed(elementName, 'number of input ports', 2);
+setnamed(elementName, 'name', 'Optical Network Analyzer');
+
+#Add directional couplers
+#Add N-port S-parameter element
+?elementName = addelement('Optical N Port S-Parameter');
+setnamed(elementName,'x position',300);
+setnamed(elementName,'y position',400);
+setnamed(elementName, 'passivity','test'); # make sure s-param file gets tested
+setnamed(elementName, 'reciprocity','test');
+setnamed(elementName, 'load from file','true');
+setnamed(elementName, 's parameters filename', 'dc_R=5,gap=200,Lc=0,wg=500.sparam'); 
+setnamed(elementName, 'name', 'Directional Coupler 1');
+
+copy(0,200);
+set('name','Directional Coupler 2');
+
+#Add waveguide to make ring
+elementName = addelement('Straight Waveguide');
+setnamed(elementName, 'x position', 500);
+setnamed(elementName, 'y position',500);
+rotateelement(elementName);
+setnamed(elementName, 'length', pi*R);
+setnamed(elementName, 'loss 1', 300);
+# Waveguide is here only to provide loss; propagation is taken into account by the directional coupler
+setnamed(elementName, 'effective index 1', 0);  
+setnamed(elementName, 'group index 1', 0); 
+setnamed(elementName, 'name','WG');
+
+#Add phase modulator
+elementName = addelement('Optical Modulator Measured');
+setnamed(elementName, 'x position', 150);
+setnamed(elementName, 'y position',500);
+flipelement(elementName);
+rotateelement(elementName);
+setnamed(elementName, 'operating frequency', 'user defined');
+setnamed(elementName, 'frequency', 193.1e12);
+setnamed(elementName, 'length', pi*30e-6);
+setnamed(elementName, 'load from file', false);
+setnamed(elementName, 'measurement type','effective index');
+setnamed(elementName, 'name','Phase Modulator');
+
+#Add DC source 
+elementName = addelement('DC Source');
+setnamed(elementName, 'x position', 5);
+setnamed(elementName, 'y position',500);
+setnamed(elementName, 'amplitude', 0);
+setnamed(elementName, 'name', 'DC Source');
+
+connect('WG', 0, 'Directional Coupler 1', 3);
+connect('WG', 1, 'Directional Coupler 2', 2);
+connect('Phase Modulator', 0, 'Directional Coupler 1', 1);
+connect('Phase Modulator', 2, 'Directional Coupler 2', 0);
+connect('DC Source', 0, 'Phase Modulator', 1);
+connect('Optical Network Analyzer', 1, 'Directional Coupler 1', 2);
+connect('Optical Network Analyzer', 0, 'Directional Coupler 1', 0);
+connect('Optical Network Analyzer', 2, 'Directional Coupler 2', 1);
+
+run;
+
+t1=getresult("Optical Network Analyzer", "input 1/mode 1/gain");
+q2=getresult("Optical Network Analyzer", "input 2/mode 1/peak/quality factor");
+t2=getresult("Optical Network Analyzer", "input 2/mode 1/gain");
+wvl1= t1.getparameter('wavelength');
+t1= t1.getattribute("'TE' gain (dB)");
+t2= t2.getattribute("'TE' gain (dB)");
+q2wvl = q2.getparameter('wavelength');
+q2 = q2.getattribute("'TE' quality factor");
+angle1=getresult("Optical Network Analyzer", 'input 1/mode 1/angle');
+angle1=angle1.getattribute("'TE' angle (rad)");
+
+
+plot(wvl1*1e6,t1,t2,'wavelength [micron]','Amplitude [dB]','Ring Modulator Spectrum');
+legend('through','drop');
+
+plot(wvl1*1e6,unwrap(angle1),'wavelength [micron]','Phase [rad]','Ring Modulator Spectrum');
+legend('through');
+
+#switchtolayout;

@@ -1,0 +1,60 @@
+# 2D Grating Coupler Model
+
+# Draw GC
+redrawoff;
+gap=period*(1-ff); # etched region of the grating
+
+# add GC base
+addrect;
+set('name','GC_base');
+set('material',material);
+set('x max',(gc_number+1)*period);
+set('x min',0);
+set('y',0.5*(thick_Si-etch_depth));
+set('y span',thick_Si-etch_depth);
+
+# add GC teeth;
+for(i=0:gc_number)
+{
+  addrect;
+  set('name','GC_tooth');
+  set('material',material);
+  set('y',0.5*thick_Si);
+  set('y span',thick_Si);
+  set('x min',gap+i*period);
+  set('x max',period+i*period);
+}
+selectpartial('GC');
+addtogroup('GC');
+
+
+# draw silicon substrate;
+addrect;
+set('name','Si_sub');
+set('material','Si (Silicon) - Dispersive & Lossless');
+set('x max',30e-6);
+set('x min', -20e-6);
+set('y',-1*(thick_BOX+0.5*Si_substrate));
+set('y span',Si_substrate);
+set('alpha',0.2);
+
+#draw burried oxide;
+addrect;
+set('name','BOX');
+set('material','SiO2 (Glass) - Const');
+set('x max',30e-6);
+set('x min',-20e-6);
+set('y min',-thick_BOX);
+set('y max',thick_Clad);
+set('override mesh order from material database',true);
+set('mesh order',3);
+set('alpha',0.3);
+
+#draw waveguide;
+addrect;
+set('name','WG');
+set('material','Si (Silicon) - Dispersive & Lossless');
+set('x min',-20e-6);
+set('x max', 0);
+set('y',0.11e-6);
+set('y span',0.22e-6);

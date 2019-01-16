@@ -1,0 +1,12 @@
+# wg_1D_slab_mode.lsf - calculate mode profiles in Lumerical MODE
+
+wg_1D_slab;      # Draw waveguides and setup the simulation
+
+n=findmodes;     # calculate the modes 
+for (m=1:modes) {
+	? neff=getdata ("FDE::data::mode"+num2str(m),"neff"); # display effective index
+	z=getdata("FDE::data::mode1","z");
+	E3=pinch(getelectric("FDE::data::mode"+num2str(m)));
+	plot(z,E3); # plot the mode profile
+}
+

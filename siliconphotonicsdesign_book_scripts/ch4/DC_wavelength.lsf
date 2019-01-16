@@ -1,0 +1,30 @@
+# DC_wavelength.lsf - Calculate directional coupler's wavelength dependence, Lumerical MODE Solutions
+
+wavelength_start=1.5e-6;
+wavelength_stop=1.6e-6;
+wavelength_num=5;
+gap=0.2e-6;
+
+switchtolayout;
+setnamed("waveguide2","y", -width_ridge/2-gap/2);
+setnamed("waveguide1","y", width_ridge/2+gap/2);
+
+setanalysis("wavelength",wavelength_start);
+findmodes;
+selectmode(1);
+setanalysis("track selected mode",1);
+setanalysis("number of test modes",3);
+setanalysis("number of points",wavelength_num);
+setanalysis("stop wavelength",wavelength_stop); 
+frequencysweep;
+f=getdata("frequencysweep","f"); wavelengths=c/f;
+neff1 = getdata("frequencysweep","neff");
+
+selectmode(2);
+setanalysis("track selected mode",2);
+frequencysweep;
+neff2= getdata("frequencysweep","neff");
+
+plot(wavelengths*1e6,real(neff1),real(neff2), "Wavelength [micron]", "Effective Index","");
+legend("Symmetric mode","Antisymmetric mode");
+matlabsave ("DC_wavelength", neff1, neff2,wavelengths);

@@ -1,0 +1,91 @@
+# Optical simulation of the pn-junction phase modulator
+# Step 2: in Lumerical MODE; this script accomplishes:
+# 1) Loads the carrier density from electrical simulations, and
+#    calculates the neff vs voltage
+# 2) Exports the results for INTERCONNECT compact modelling.
+
+newproject; redrawoff;
+
+# modulator geometry variables defined:
+modulator_setup_parameters;
+
+# add material
+np_material_name = 'silicon with carriers';
+new_mat = addmaterial('np Density');
+setmaterial(new_mat,'name',np_material_name);
+setmaterial(np_material_name,'use soref and bennet model',1);
+setmaterial(np_material_name,'Base Material','Si (Silicon) - Palik');
+
+# add data source (np density grid attribute)
+matlabload(filename_mzi);  # read in charge dataset
+addgridattribute('np Density');
+importdataset(charge);     # attach to grid attribute
+set('name',filename_mzi);
+
+# define simulation region for MODE calculations
+x_span = width_slab - 1e-6; # truncate the contact regions
+z_span = 3e-6;
+override_mesh_size = 0.01e-6;
+
+# draw geometry
+addrect; 			# oxide
+set('name','oxide');
+set('material','SiO2 (Glass) - Palik');
+set('override mesh order from material database',1); set('mesh order',5);
+set('override color opacity from material database',1); set('alpha',0.3);
+set('x',x_center); set('x span',width_slab);
+set('y',y_center); set('y span',y_span);
+set('z',0); set('z span',z_span);
+
+addrect; 			# rib
+set('name','rib');
+set('material',np_material_name);
+set('x',x_center); set('x span', width_rib);
+set('y',y_center); set('y span',y_span);
+set('z min',thick_slab); set('z max',thick_slab+thick_rib);
+
+addrect; 			# slab
+set('name','slab');
+set('material',np_material_name);
+set('x',x_center); set('x span', width_slab);
+set('y',y_center); set('y span',y_span);
+set('z min',z_center); set('z max',thick_slab);
+
+# simulation region
+addfde;
+set('solver type','2D Y normal');
+set('x',x_center); set('x span',x_span);
+set('z',0); 
+
+addmesh;
+set('name','wg mesh');
+set('dx',override_mesh_size);
+set('dz',override_mesh_size);
+set('override y mesh',0);
+set('x',x_center); set('x span', width_rib);
+set('z min',0); set('z max',thick_slab+thick_rib);
+
+# run simulation
+V = voltage_start:voltage_interval:voltage_stop;
+neff = matrix(length(V));
+
+for (i=1:length(V)){
+  switchtolayout;
+  setnamed(filename_mzi,'V_cathode_index',i);
+  findmodes;
+  neff(i) = getdata('mode1','neff');
+}
+
+# write out
+dneff = real(neff - neff(find(V>=0,1)));   # relative change in index
+
+la0 = getnamed("FDE","wavelength");  # central wavelength
+rel_phase = 2*pi*dneff/la0*1e-2;     # phase change /cm
+alpha_dB_cm = -0.2*log10(exp(1))*(-2*pi*imag(neff)/la0);
+
+plot(V,rel_phase, "Voltage (V)", "Relative phase (rad./cm)");
+plot(V,alpha_dB_cm, "Voltage (V)", "loss (dB/cm)");
+
+data = [V,dneff,imag(neff)];
+write("modulator_neff_V.dat",num2str(data));  # for INTERCONNECT
+

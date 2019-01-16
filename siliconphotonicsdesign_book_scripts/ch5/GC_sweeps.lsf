@@ -1,0 +1,92 @@
+# Sweep various parameters of the grating coupler
+
+newproject;
+
+# Choose one of the following:
+Sweep_type = 'Period';      # Period of the grating
+#Sweep_type = 'FillFactor';  # Fill factor of the grating
+#Sweep_type = 'Position';    # Position of the optical source on the grating
+#Sweep_type = 'Angle';       # Angle of the gaussian beam
+#Sweep_type = 'BOX';         # Thickness of the buried oxide
+#Sweep_type = 'Cladding';    # Thickness of the cladding
+#Sweep_type = 'EtchDepth';   # Etch depth on the silicon grating
+
+GC_init;
+
+if (Sweep_type == 'Period') {
+    sweep_start = 0.62e-6; sweep_end = 0.7e-6; loop = 5;
+}
+if (Sweep_type == 'FillFactor') {
+    sweep_start = 0.3; sweep_end = 0.6; loop = 5;
+}
+if (Sweep_type == 'Position') {
+    sweep_start = 2e-6; sweep_end = 8e-6; loop = 10; 
+}
+if (Sweep_type == 'Angle') {
+    sweep_start = 15; sweep_end = 25; loop = 5; 
+}
+if (Sweep_type == 'BOX') {
+    sweep_start = 1e-6; sweep_end = 3e-6; loop = 50; 
+}
+if (Sweep_type == 'Cladding') {
+    sweep_start = 1e-6; sweep_end = 3e-6; loop = 50; 
+}
+if (Sweep_type == 'EtchDepth') {
+    sweep_start = 0.06e-6; sweep_end = 0.08e-6; loop = 5; 
+}
+
+
+M_sweep = linspace(sweep_start, sweep_end, loop);
+M_Tlambda = matrix(loop,1);   # matrix to store transmission at central wavelength
+M_T = matrix(frequency_points,loop); # matrix to store transmission for all wavelengths
+
+for(ii=1:loop)
+{
+    ? ii;
+    if (Sweep_type == 'Period') {
+        period = M_sweep(ii,1);
+    }
+    if (Sweep_type == 'FillFactor') {
+        ff = M_sweep(ii,1);
+    }
+    if (Sweep_type == 'Position') {
+        Position = M_sweep(ii,1); 
+    }
+    if (Sweep_type == 'Angle') {
+        theta0 = M_sweep(ii,1); 
+    }
+    if (Sweep_type == 'BOX') {
+        thick_BOX = M_sweep(ii,1); 
+    }
+    if (Sweep_type == 'Cladding') {
+        thick_Clad = M_sweep(ii,1); 
+    }
+    if (Sweep_type == 'EtchDepth') {
+        etch_depth = M_sweep(ii,1); 
+    }
+    
+    switchtolayout; selectall; delete; redrawoff;
+    
+    #GC_setup_Gaussian;  
+    # or:
+    GC_setup_fibre; 
+    
+    run;
+    T = transmission('T');
+    M_T(1:frequency_points,ii) = T;
+    M_Tlambda(ii,1) = T(floor(frequency_points/2));
+    switchtolayout;
+}
+
+WL=linspace(lambda-0.5*wl_span,lambda+0.5*wl_span,frequency_points);
+
+for(jj=1:loop)
+{
+    plot(WL, abs(M_T(1:frequency_points,jj)));
+    holdon;
+}
+?10*log10(max(abs(M_T)));  # lowest insertion loss
+holdoff;
+plot(M_sweep, abs(M_Tlambda));
+
+matlabsave('GC_sweep_'+Sweep_type);

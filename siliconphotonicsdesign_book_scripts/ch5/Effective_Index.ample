@@ -1,0 +1,116 @@
+ // calculate the effective index (neff) of a grating coupler
+function Effective_index( 
+	wl:number {default=1.55},
+	etch_depth:number {default=0.07}, 
+	Si_thickness:number {default=0.22},
+	n_cladd:number {default=1.444},
+	pl:string {default="TE"},
+	ff:number {default=0.5} )
+{
+	local point=1001, ii=0, jj=0, kk=0, mm=0, nn=0, n0=n_cladd, n1=0, n3=1.444;
+	// Silicon wavelength-dependant index of refraction:
+	local n2=sqrt(7.9874+(3.68*pow(3.9328,2)*pow(10,30)) / ((pow(3.9328,2)*pow(10,30)-pow(2*3.14*3*pow(10,8) /(wl*pow(10,-6)),2))));  
+	local delta=n0-n3, t=Si_thickness, t_slot=t-etch_depth;
+	local k0 = 2*3.14159/wl;  
+	local b0 = $create_vector(point-1), te0 = $create_vector(point-1), te1 = $create_vector(point-1), tm0 = $create_vector(point-1), tm1 = $create_vector(point-1), h0 = $create_vector(point-1), q0 = $create_vector(point-1), p0 = $create_vector(point-1), qbar0 = $create_vector(point-1), pbar0 = $create_vector(point-1);
+	local mini_TE=0, index_TE=0, mini_TE1=0, index_TE1=0, mini_TM=0, index_TM=0, mini_TM1=0, index_TM1=0, nTE=0, nTE1=0, nTM=0, nTM1=0, ne=0;
+
+	//------ calculating neff for the silicon layer ----
+	if( delta<0) 	{
+		n1=n3;
+	}	else 	{
+		n1=n0;
+	}
+
+	for(ii=0;ii<point-1;ii=ii+1) 	{
+		b0[ii]= n1*k0+(n2-n1)*k0/(point-10)*ii;	
+	}
+	
+	for(jj=0;jj<point-1;jj=jj+1)	{		
+		h0[jj] = sqrt( abs(pow(n2*k0,2) - pow(b0[jj],2)));	
+		q0[jj] = sqrt( abs(pow(b0[jj],2) - pow(n0*k0,2)));
+		p0[jj] = sqrt( abs(pow(b0[jj],2) - pow(n3*k0,2)));	
+	}	
+	
+	for(kk=0; kk<point-1; kk=kk+1)	{
+		pbar0[kk] = pow(n2/n3,2)*p0[kk];
+		qbar0[kk] = pow(n2/n0,2)*q0[kk];
+	}
+
+//----calculating neff for TE mode--------
+	
+	 if (pl=="TE")	{
+		for (nn=0;nn<point-1;nn=nn+1)	{
+			te0[nn] = tan( h0[nn]*t )-(p0[nn]+q0[nn])/h0[nn]/(1-p0[nn]*q0[nn]/pow(h0[nn],2));
+			te1[nn] = tan( h0[nn]*t_slot )-(p0[nn]+q0[nn])/h0[nn]/(1-p0[nn]*q0[nn]/pow(h0[nn],2));	 
+		}
+	  
+		local abs_te0=abs(te0);	
+		local abs_te1=abs(te1); 
+		mini_TE=$vector_min(abs_te0);
+		mini_TE1=$vector_min(abs_te1);
+		index_TE=$vector_search(mini_TE,abs(te0),0); 
+		index_TE1=$vector_search(mini_TE1,abs(te1),0); 
+		nTE=b0[index_TE]/k0; 
+		nTE1=b0[index_TE1]/k0;	 
+	
+		do   {
+			abs_te0[index_TE]=100;
+			mini_TE=$vector_min(abs_te0);
+			index_TE=$vector_search(mini_TE,abs(te0),0);	
+			nTE=b0[index_TE]/k0;  
+		}  
+		while ( nTE<2 || nTE>3); //  && is logic and  || is logic or
+
+		do  {
+			abs_te1[index_TE1]=100;
+			mini_TE1=$vector_min(abs_te1);
+			index_TE1=$vector_search(mini_TE1,abs(te1),0);  
+			nTE1=b0[index_TE1]/k0;  
+		}  
+		while ( nTE1<2 || nTE1>3);
+			
+		ne=ff*nTE+(1-ff)*nTE1;  
+	}
+
+//-----calculating neff for TM mode----
+	 
+	else if (pl=="TM")  {  
+		for (mm=0;mm<point-1;mm=mm+1)	{
+			tm0[mm] = tan(h0[mm]*t)- h0[mm]*(pbar0[mm]+qbar0[mm]) / (pow(h0[mm],2)-pbar0[mm]*qbar0[mm]);
+			tm1[mm] = tan(h0[mm]*t_slot)- h0[mm]*(pbar0[mm]+qbar0[mm]) / (pow(h0[mm],2)-pbar0[mm]*qbar0[mm]);
+		}
+  
+		local abs_tm0=abs(tm0);	
+		local abs_tm1=abs(tm1);
+		mini_TM=$vector_min(abs(tm0));
+		mini_TM1=$vector_min(abs(tm1));
+		index_TM=$vector_search(mini_TM,abs(tm0),0);
+		index_TM1=$vector_search(mini_TM1,abs(tm1),0);
+		nTM=b0[index_TM]/k0; 
+		nTM1=b0[index_TM1]/k0; 
+
+		do   {
+			abs_tm0[index_TM]=100;
+			mini_TM=$vector_min(abs_tm0);
+			index_TM=$vector_search(mini_TM,abs(tm0),0);	
+			nTM=b0[index_TM]/k0;  
+		}  
+		while ( nTM<1.5 || nTM>3); 
+
+		do   {
+			abs_tm1[index_TM1]=100;
+			mini_TM1=$vector_min(abs_tm1);
+			index_TM1=$vector_search(mini_TM1,abs(tm1),0);	
+			nTM1=b0[index_TM1]/k0;  
+		}  
+		while ( nTM1<1.5 || nTM1>3); 
+
+		ne=ff*nTM+(1-ff)*nTM1;  
+	} else {
+		$writes_file("Please type TE or TM for pl(polarization)");  
+	}
+
+	$writes_file($stdout,"ne=",ne,"\n");	 
+	return ne;
+}  

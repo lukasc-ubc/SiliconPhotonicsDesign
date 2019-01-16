@@ -1,0 +1,139 @@
+# 2D Grating Coupler Model with Fibre
+
+GC_draw;  # Draw GC
+
+# add simulation region;
+addfdtd;
+set('dimension','2D');
+set('x max',15e-6);
+set('x min',-3.5e-6);
+set('y min',-(thick_BOX+0.2e-6));
+set('y max',thick_Clad+2e-6);
+set('mesh accuracy',mesh_accuracy);
+set('simulation time',simulation_time);
+
+#add waveguide mode source;
+addmode;
+set('name','waveguide_source');
+set('x',-3e-6);
+set('y',0.5*thick_Si);
+set('y span',2e-6);
+set('direction','Forward');
+set('use global source settings',true);
+set('enabled',false);
+
+
+#add fibre;
+theta=asin(sin(theta0*pi/180)/core_index)*180/pi;
+r1 = core_diameter/2;
+r2 = cladding_diameter/2;
+if(theta >  89) { theta = 89; }
+if(theta < -89) { theta = -89; } 
+
+thetarad = theta*pi/180;
+L = 20e-6/cos(thetarad);
+
+V1 = [ -r1/cos(thetarad),  0;
+        r1/cos(thetarad),  0;
+        r1/cos(thetarad)+L*sin(thetarad), L*cos(thetarad);
+        -r1/cos(thetarad)+L*sin(thetarad), L*cos(thetarad)
+     ];
+
+V2 = [ -r2/cos(thetarad),  0;
+        r2/cos(thetarad),  0;
+        r2/cos(thetarad)+L*sin(thetarad), L*cos(thetarad);
+        -r2/cos(thetarad)+L*sin(thetarad), L*cos(thetarad)
+     ];
+
+addpoly;
+set('name','fibre_core');
+set('x',0); set('y',0);
+set('vertices',V1);
+set('index',core_index);
+
+addpoly;
+set('name','fibre_cladding');
+set('override mesh order from material database',1);
+set('mesh order',3);
+set('x',0); set('y',0);
+set('vertices',V2);
+set('index',cladding_index);
+
+addmode;
+set('name','fibre_mode');
+set('injection axis','y-axis');
+set('direction','Backward');
+set('use global source settings',1);
+set('theta',-theta);
+span = 15*r1;
+set('x span',span);
+d = 0.4e-6;
+set('x',d*sin(thetarad));
+set('y',d*cos(thetarad));
+set('rotation offset',abs(span/2*tan(thetarad)));
+
+addpower;
+set('name','fibre_top');
+set('x span',span);
+d = 0.2e-6;
+set('x',d*sin(thetarad));
+set('y',d*cos(thetarad));
+
+addmodeexpansion;
+set('name','fibre_modeExpansion');
+set('monitor type','2D Y-normal');
+setexpansion('fibre_top','fibre_top');
+set('x span',span);
+set('x',d*sin(thetarad));
+set('y',d*cos(thetarad));
+set('theta',-theta);
+set('rotation offset',abs(span/2*tan(thetarad)));
+set('override global monitor settings',false);
+
+selectpartial('fibre');
+addtogroup('fibre');
+selectpartial('::fibre_modeExpansion');
+setexpansion('fibre_top','::model::fibre::fibre_top');
+
+unselectall;
+select('fibre');
+set('x',Position);
+set('y',thick_Clad+1e-6);
+
+# add monitor;
+addpower;
+set('name','T');
+set('monitor type','2D X-normal');
+set('x',-2.8e-6);
+set('y',0.5*thick_Si);
+set('y span',1e-6);
+
+# add waveguide mode expansion monitor
+addmodeexpansion;
+set('name','waveguide');
+set('monitor type','2D X-normal');
+setexpansion('T','T');
+set('x',-2.9e-6);
+set('y',0.5*thick_Si);
+set('y span',1e-6);
+
+
+if (polarization=='TE'){
+    select('fibre::fibre_mode'); set('mode selection','fundamental TM');
+    select('fibre::fibre_modeExpansion'); set('mode selection','fundamental TM');
+    select('waveguide_source'); set('mode selection','fundamental TM');
+    select('waveguide'); set('mode selection','fundamental TM');
+} else {
+    select('fibre::fibre_mode'); set('mode selection','fundamental TE');
+    select('fibre::fibre_modeExpansion'); set('mode selection','fundamental TE');
+    select('waveguide_source'); set('mode selection','fundamental TE');
+    select('waveguide'); set('mode selection','fundamental TE');
+}
+# global properties
+setglobalmonitor('frequency points',frequency_points);
+setglobalmonitor('use linear wavelength spacing',1);
+setglobalmonitor('use source limits',1);
+setglobalsource('center wavelength',lambda);
+setglobalsource('wavelength span',wl_span);
+
+save('GC_fibre');

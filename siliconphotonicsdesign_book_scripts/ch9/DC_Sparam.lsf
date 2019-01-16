@@ -1,0 +1,664 @@
+# Directional coupler simulations
+# Lumerical, Jonas Flueckiger, 2014
+
+#based on script provided by Lukas Chrostowski, Miguel Angel Guillen Torres
+# inputs:
+# 	radius:		radius, centre of waveguide
+#	DC_angle:	angle for the bottom coupler (typical 30 degrees)
+#	gap:		directional coupler gap
+#	Lc:		coupler length, 0=point coupling
+#	wavelength:	centre wavelength, e.g., 1550e-9
+#	wg_width:	width of waveguide, e.g,. 500e-9;
+
+figs = 1; # 1: plots s params, Norm, and abs(S-S*); 0: no plots
+
+#Define data export
+xml_filename="directional_coupler_map.xml";
+table = "directional_coupler";
+#open file to write table
+lookupopen(xml_filename,table);
+#prepare data structure
+design = cell(6);
+extracted = cell(4);
+design{1} = struct;  design{1}.name = "gap";
+design{2} = struct;  design{2}.name = "radius";
+design{3} = struct;  design{3}.name = "wg_width";
+design{4} = struct;  design{4}.name = "wg_height";
+design{5} = struct;  design{5}.name = "Lc";
+design{6} = struct;  design{6}.name = "SiEtch2";
+extracted{1} = struct; extracted{1}.name = "s-param";
+extracted{2} = struct; extracted{2}.name = "transmission_coeff"; 
+extracted{3} = struct; extracted{3}.name = "coupling_coeff";
+extracted{4} = struct; extracted{4}.name = "insertion_loss";
+
+# Variables definition
+num_wg_width = 1; # numer of data points for wg width;
+num_gap = 1;     # number of data points for gap.
+num_Lc = 1;       # number of data points coupling length.  
+num_radius = 1;   # number of data points radius
+num_wg_height = 1;
+num_SiEtch2 = 1;  # number of Etch thicknesses
+lambda_min = 1.5e-6; # [m]
+lambda_max = 1.6e-6; # [m]
+
+# Design parameters to sweep
+if (num_wg_width ==1){wg_width = [0.5e-6];}
+else{wg_width = linspace(0.40e-6, 0.6e-6,num_wg_width);}
+
+if (num_radius==1){radius = [5e-6];}
+else {radius = linspace(5e-6,50e-6,num_radius);}
+
+if (num_gap==1){gap =[200e-9];}
+else{gap = linspace(180e-9,220e-9,num_gap);}
+
+if (num_Lc==1){Lc=[0];}
+else {Lc = linspace(0,15,num_Lc);}
+
+if (num_wg_height==1){si_thickness = [220e-9];}
+else {si_thickness = linspace(210e-9,230e-9,num_wg_heigth);}
+
+if (num_SiEtch2==1){Etch2=[130e-9];}
+# Etch2=[130e-9]; #i.e., the slab thickness is 220-130 = 90 nm
+
+dc_angle=30; 
+
+newproject; #Creates new layout environment
+
+#Define materials
+materials; # creates a dispersive material model.
+Material_Si = "Si (Silicon) - Dispersive & Lossless";
+Material_Ox ="SiO2 (Glass) - Const";
+
+MESH = 1;   # test,
+MESH = 3;
+#MESH = 4;   # final
+SIM_TIME = 3000e-15; #Simulation time. 
+
+#Set global source parameters. 
+FREQ_PTS = 1001;
+FREQ_CENTRE = c/1.55e-6;
+setglobalsource("set frequency",1);
+setglobalsource("center wavelength", 1.55e-6);  
+setglobalsource("center frequency",FREQ_CENTRE);
+#setglobalsource("frequency span",c/(lambda_max-lambda_min));
+setglobalsource("frequency span",10000e9);
+
+#Set global monitor parameters
+setglobalmonitor("frequency center", FREQ_CENTRE);
+setglobalmonitor("frequency span", 10000e9);
+setglobalmonitor("frequency points",FREQ_PTS); # Must be odd, so that the centre frequency is actually amongst the selected values.
+
+
+FDTD_above=800e-9;	# Extra simulation volume added, 0.8 um on top and bottom
+FDTD_below=800e-9;
+
+maxvzWAFER=si_thickness(1)+FDTD_above;	minvzWAFER=-FDTD_below;
+
+redrawoff;
+
+# ********************************************************************************
+## WAVEGUIDE FOR COUPLER:
+# ********************************************************************************
+for (rr=1:length(radius))
+{
+for (gg=1:length(gap)){
+switchtolayout;
+groupscope("::model");
+deleteall;
+addgroup; set("name","wg"); 
+set("x",0);set("y",0); 
+groupscope("wg");
+
+# straight part of DC:
+addrect;
+set("y span",wg_width(1));
+set("x span",Lc(1));
+set("y",-radius(rr));
+
+copy(0,-wg_width(1)-gap(gg)); #copy of selected object and move in dy
+#set("y",-radius-wg_width-gap);
+
+# extra waveguide above ring
+addrect;
+set("x span", wg_width(1));
+set("x",-radius(rr)-Lc(1)/2);
+set("y min",0);
+set("y max", 2e-6+4e-6);
+
+copy;
+set("x",-get("x"));
+ 
+# Ring
+addring;
+set("theta start",-90);
+set("theta stop",0);
+set("inner radius",radius(rr)-wg_width(1)/2);
+set("outer radius",radius(rr)+wg_width(1)/2);
+set("x",Lc(1)/2);
+set("y", 0); 
+
+copy;
+set("theta start",180);
+set("theta stop",270);
+set("x",-Lc(1)/2);
+
+# bottom Directional coupler
+copy;
+set("theta start", 90-dc_angle);
+set("theta stop", 90);
+set("x",Lc(1)/2);
+set("y",-2*radius(rr)-wg_width(1)-gap(gg));
+
+copy;
+set("theta start", 90);
+set("theta stop", 90+dc_angle);
+set("x",-Lc(1)/2);
+
+copy;
+set("theta start", -90);
+set("theta stop", -90+dc_angle);
+set("x",-Lc(1)/2-2*sin(dc_angle/360*2*pi)*radius(rr));
+set("y",-2*(1-cos(dc_angle/360*2*pi))*radius(rr)-wg_width(1)-gap(gg));
+
+copy;
+set("theta start", -90-dc_angle);
+set("theta stop", -90);
+set("x",-get("x"));
+
+addrect;
+set("y span",wg_width(1));
+wg_bottom_input_y=-2*(1-cos(dc_angle/360*2*pi))*radius(rr)-radius(rr)-wg_width(1)-gap(gg);
+set("y",wg_bottom_input_y);
+wg_bottom_input_x=-Lc(1)/2-2*sin(dc_angle/360*2*pi)*radius(rr);
+set("x max",wg_bottom_input_x);
+set("x min",get("x max")-2e-6-3e-6);
+
+copy;
+set("x",-get("x"));
+
+selectall;
+set("material",Material_Si);
+set("z min",0);
+set("z max",si_thickness(1));
+
+# ********************************************************************************
+#Waveguide slab   Si partial etch 2 (130 nm deep)    3;0
+# ********************************************************************************
+ maxvxWAFER = Lc(1)/2+2*sin(dc_angle/360*2*pi)*radius(rr)+2e-6;
+ minvxWAFER = -maxvxWAFER;
+ minvy=-2*(1-cos(dc_angle/360*2*pi))*radius(rr)-radius(rr)-4*wg_width(1)-gap(gg);
+ maxvy=0.5e-6;
+
+ addrect; set("name","slab");
+ set("y max",maxvy+4e-6);
+ set("y min",minvy-4e-6);
+ set("x span",2*maxvxWAFER+8e-6);set('x', 0); 
+ set('material', Material_Si);
+ set('z max',si_thickness(1)-Etch2(1));
+ set('z min',0);
+ set("alpha",0.5); #transparency of the object.
+
+# buried Oxide
+addrect; set("name", "Oxide");
+set("x min", minvxWAFER-3e-6); set("y min", minvy-4e-6);
+set("x max", maxvxWAFER+3e-6); set("y max", maxvy+4e-6);
+set("z min", -2e-6); set("z max", 0);
+set("material", Material_Ox);
+set("alpha",0.52);
+ 
+# Cladding oxide
+addrect; set("name", "Cladding");
+set("x min", minvxWAFER-3e-6); set("y min", minvy-4e-6);
+set("x max", maxvxWAFER+3e-6); set("y max", maxvy+4e-6);
+set("z min", 0); set("z max", 2.3e-6);
+set("material", Material_Ox);
+set("alpha",0.5);
+set("override mesh order from material database", 1);
+set("mesh order", 4);	# make the cladding the background, i.e., "send to back". 
+
+
+# ********************************************************************************
+# Add the simulation area
+# ********************************************************************************
+groupscope("::model"); #f you want to delete all objects in the simulation, set the group scope the root level (i.e. ::model). 
+
+MonitorSpanY=3e-6+wg_width(1);
+SimMarginX=0.0e-6;
+SimMarginY=0.5e-6;
+SourceMarginX=2e-6;
+MonitorMarginX=2e-6;
+
+addfdtd; #Add simulation area
+set("x min", minvxWAFER-SimMarginX); set("x max", maxvxWAFER+SimMarginX);
+set("y min", minvy-SimMarginY);	set("y max", maxvy);  
+set("z min", minvzWAFER);	set("z max", maxvzWAFER);
+set("mesh accuracy", MESH);
+set("simulation time",SIM_TIME);
+if (MESH<3) {
+    set("z min bc","Metal"); set("z max bc","Metal");
+    set("y min bc","Metal");
+}
+
+addmode; set("name","simulation_port2"); 
+# Add source to the simulation environment.
+#set("override global source settings",0);
+set("injection axis","x-axis"); set("direction","Forward");
+set("x", wg_bottom_input_x-1000e-9);  # simulate up to the layout port (wg_width x wg_width box)
+set("y span",MonitorSpanY);  
+set("y", wg_bottom_input_y);
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('override global source settings', 0);
+set('mode selection', 'fundamental TE mode'); 
+set("enabled",0);
+
+#set("center frequency",FREQ_CENTRE);
+#set("frequency span",c/(lambda_max-lambda_min));
+
+addmode; set("name","simulation_port1"); 
+#Adds source to the simulation environment.
+#set("override global source settings",0);
+set("injection axis","y-axis"); set("direction","Backward");
+set("x", -radius(rr)-Lc(1)/2);  set("x span",MonitorSpanY);  
+set("y", 200e-9);
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('override global source settings', 0);
+set('mode selection', 'fundamental TE mode'); 
+
+#set("center frequency",FREQ_CENTRE);
+#set("frequency span",c/(lambda_max-lambda_min));
+
+#***********************************************************
+#Monitors
+#***********************************************************
+
+XcoordPort2=wg_bottom_input_x; 	# bottom left input
+
+addpower; set("name", "Port2");# Add power monitor for Port 2
+set('monitor type', '2D X-normal');
+set('y', wg_bottom_input_y); 
+set("y span",MonitorSpanY); 
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set("x", XcoordPort2);
+set('override global monitor settings', 0);
+addmesh;  #To avoid phase error. force monitor on mesh
+set('y', wg_bottom_input_y);
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('x', XcoordPort2);
+set('y span', 0); 
+set('x span', 0);
+set('y span',0);
+set("set maximum mesh step", 1); set("override y mesh", 1); set("dy", 20e-9);
+set("override x mesh", 1); set("dx", 20e-9);
+set("override z mesh", 1); set("dz", 20e-9);
+
+
+addpower; set("name", "Port1");# Add power monitor for Port 1
+set('monitor type', '2D Y-normal');
+set('y', 0);  # unfortunately, monitor cannot overlap source 
+set("x",-radius(rr)-Lc(1)/2);
+set("x span",MonitorSpanY); 
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('override global monitor settings', 0);
+addmesh;  #To avoid phase error. force monitor on mesh
+set('y', 0);
+set('y span', 0); 
+set('x span', 0);
+set('y span',0);
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('x',-radius(rr)-Lc(1)/2);
+set("set maximum mesh step", 1); set("override x mesh", 1); set("dx", 20e-9);
+set("override y mesh", 1); set("dy", 20e-9);
+set("override z mesh", 1); set("dz", 40e-9);
+
+
+addpower; set("name", "Port4");
+set('monitor type', '2D X-normal');
+set('y', wg_bottom_input_y); 
+set("y span",MonitorSpanY); 
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set("x", -XcoordPort2);
+set('override global monitor settings', 0);
+addmesh;  #To avoid phase error. force monitor on mesh
+set('y', wg_bottom_input_y);
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('x', -XcoordPort2);
+set('y span', 0); 
+set('x span', 0);
+set('y span',0);
+set("set maximum mesh step", 1); set("override y mesh", 1); set("dy", 20e-9);
+set("override x mesh", 1); set("dx", 20e-9);
+set("override z mesh", 1); set("dz", 40e-9);
+
+
+
+# Add power monitor for Port 3
+addpower; set("name", "Port3");
+set('monitor type', '2D Y-normal');
+set('y', 0); 
+set("x",radius(rr)+Lc(1)/2);
+set("x span",MonitorSpanY); 
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('override global monitor settings', 0);
+addmesh;  #To avoid phase error. force monitor on mesh
+set('y', 0);
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('x',radius(rr)+Lc(1)/2);
+set('y span', 0); 
+set('x span', 0);
+set('y span',0);
+set("set maximum mesh step", 1); set("override x mesh", 1); set("dx", 20e-9);
+set("override y mesh", 1); set("dy", 20e-9);
+set("override z mesh", 1); set("dz", 40e-9);
+
+
+addmodeexpansion; #the fraction of power transmitted into any modes
+set('name', 'expansion_v');
+set('monitor type', '2D X-normal');
+set('y', wg_bottom_input_y); 
+set("y span",MonitorSpanY); 
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set("x", -XcoordPort2);
+set('frequency points',1);
+Mode_Selection = 'fundamental TE mode';
+set('mode selection', Mode_Selection);
+setexpansion('Port2expa','Port2');
+setexpansion('Port4expa','Port4');
+
+addmodeexpansion;
+set('name', 'expansion_h');
+set('monitor type', '2D Y-normal');
+set('y', 0); 
+set("x",radius(rr)+Lc(1)/2);
+set("x span",MonitorSpanY); 
+set("z min", minvzWAFER);  set("z max", maxvzWAFER);
+set('frequency points',1);
+set('mode selection', Mode_Selection);
+setexpansion('Port1expa','Port1');
+setexpansion('Port3expa','Port3');
+
+select("FDTD"); setview("extent");  # zoom to extent
+
+# refine mesh in coupling region
+if (MESH>2) {
+  mesh_span = 1e-6;
+  addmesh;  
+  set('y', -radius(rr)-wg_width(1)/2-gap(gg)/2);
+  set('y span', mesh_span);
+  set('x', 0);
+  set('x span', 5e-6);
+  set('z',si_thickness(1)/2);
+  set('z span', 500e-9); 
+  set("set maximum mesh step", 1);
+  set("override x mesh", 1); set("dx", 30e-9);
+  set("override y mesh", 1); set("dy", 30e-9);
+  set("override z mesh", 1); set("dz", 40e-9);
+}
+
+######
+# RUN
+######
+save('DC_Sparam');
+run;
+
+Port1=getresult("expansion_h","expansion for Port1expa");
+Port2=getresult("expansion_v","expansion for Port2expa");
+Port3=getresult("expansion_h","expansion for Port3expa");
+Port4=getresult("expansion_v","expansion for Port4expa");
+#for substracting phase of wag
+neff = getresult("expansion_h", "neff");
+f=neff.f;
+neff = pinch(neff.neff,2,1);
+k = neff*2*pi*f/c;
+L1=radius(rr)*pi/2;
+L2=radius(rr)*pi*2*dc_angle/360*2;
+f=Port1.f;
+
+S11=Port1.a/Port1.b; S21=Port2.b/Port1.b;
+S31=Port3.a/Port1.b; S41=Port4.a/Port1.b;
+
+if (figs==1){
+  plot (c/f*1e6, 10*log10(abs(S11)^2), 10*log10(abs(S21)^2), 10*log10(abs(S31)^2), 10*log10(abs(S41)^2), 'Wavelength (um)', 'Transmission (dB)', 'Input Port1; g=' + num2str(gap(gg)*1e9) + 'nm r=' + num2str(radius(rr)*1e6) + ' um');
+  legend ('S11 (backreflection)','S21 (cross backreflection)', 'S31 (through)', 'S41 (cross)');
+}
+?"Center wavelength: " + num2str( c/f(length(f)/2+0.5) );
+?"Through power at center wavelength (Input1): " + num2str(abs(S31(length(f)/2+0.5))^2*100) + "%.";
+?"  Cross power at center wavelength (Input1): " + num2str(abs(S41(length(f)/2+0.5))^2*100) + "%.";
+?"                              Loss (Input1): " + num2str(100-abs(S31(length(f)/2+0.5))^2*100-abs(S41(length(f)/2+0.5))^2*100) + "%.";
+
+###########################################################
+
+# Input on Port 2:
+switchtolayout;
+select("simulation_port1"); set("enabled",0);
+select("simulation_port2"); set("enabled",1);
+run;
+
+Port1=getresult("expansion_h","expansion for Port1expa");
+Port2=getresult("expansion_v","expansion for Port2expa");
+Port3=getresult("expansion_h","expansion for Port3expa");
+Port4=getresult("expansion_v","expansion for Port4expa");
+#for substracting phase of wg
+neff = getresult("expansion_v", "neff");
+f=neff.f;
+neff = pinch(neff.neff,2,1);
+k = neff*2*pi*f/c;
+L1=radius(rr)*pi/2;
+L2=radius(rr)*pi*2*dc_angle/360*2;
+
+f=Port2.f;
+S12=Port1.a/Port2.a; S22=Port2.b/Port2.a;
+S32=Port3.a/Port2.a; S42=Port4.a/Port2.a;
+
+
+if (figs==1){
+  plot (c/f*1e6, 10*log10(abs(S12)^2), 10*log10(abs(S22)^2), 10*log10(abs(S32)^2), 10*log10(abs(S42)^2), 'Wavelength (um)', 'Transmission (dB)', 'Input Port2; g=' + num2str(gap(gg)*1e9) +'nm r=' + num2str(radius(rr)*1e6) + ' um');
+  legend ('S12 (cross backreflection)','S22 (backreflection)', 'S32 (cross)', 'S42 (through)');
+}
+?"Through power at center wavelength (Input2): " + num2str(abs(S42(length(f)/2+0.5))^2*100) + "%.";
+?"  Cross power at center wavelength (Input2): " + num2str(abs(S32(length(f)/2+0.5))^2*100) + "%.";
+?"                              Loss (Input2): " + num2str(100-abs(S42(length(f)/2+0.5))^2*100-abs(S32(length(f)/2+0.5))^2*100) + "%.";
+
+
+############################################################
+#Export data
+###########################################################
+
+#export .xml and .sparam (individual file for s-params)
+n_ports = 4;
+mode_label = "TE";
+mode_ID = "1";
+input_type = "transmission";
+filename = "dc_R=" + num2str(radius(rr)*1e6) + ",gap=" + num2str(gap(gg)*1e9) + ",Lc=" +num2str(Lc(1)*1e6) + ",wg="+num2str(wg_width(1)*1e9) ;
+
+if(fileexists(filename)) {rm(filename);} # old files with same name get deleted. 
+system('mkdir -p sparam_files'); file1="sparam_files/" + filename+".sparam";
+system('mkdir -p txt_files'); file2="txt_files/" + filename+".txt";
+if (fileexists(file1)) { rm(file1);} # delete Sparam file if it already exists
+if (fileexists(file2)) { rm(file2);} # delete text file if it already exists
+
+write(file2,"Center wavelength: " + num2str( c/f(length(f)/2+0.5) ));
+write(file2,"Mesh accuracy: " + num2str(MESH));
+write(file2,"Through power at center wavelength (Input1): " + num2str(abs(S31(length(f)/2+0.5))^2*100) + "%.");
+write(file2,"  Cross power at center wavelength (Input1): " + num2str(abs(S41(length(f)/2+0.5))^2*100) + "%.");
+write(file2,"                              Loss (Input1): " + num2str(100-abs(S31(length(f)/2+0.5))^2*100-abs(S41(length(f)/2+0.5))^2*100) + "%.");
+write(file2,"Through power at center wavelength (Input2): " + num2str(abs(S42(length(f)/2+0.5))^2*100) + "%.");
+write(file2,"  Cross power at center wavelength (Input2): " + num2str(abs(S32(length(f)/2+0.5))^2*100) + "%.");
+write(file2,"                              Loss (Input2): " + num2str(100-abs(S42(length(f)/2+0.5))^2*100-abs(S32(length(f)/2+0.5))^2*100) + "%.");
+
+
+#Symmetry note: due to sign convention (in FDTD) and vectorial nature of E there is a sign change
+S13=S31;  S23=-S41; S33=S11;  S43=-S21;
+S14=-S32; S24=S42;  S34=-S12; S44=S22;
+
+# Sx1 Input on port 1
+S11_data=[f,abs(S11),unwrap(angle(S11))];
+write(file1,"('port 1','TE',1,'port 1',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S11_data)
+       );
+S21_data=[f,abs(S21),unwrap(angle(S21))];
+write(file1,"('port 2','TE',1,'port 1',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S21_data)
+       );
+S31_data=[f,abs(S31),unwrap(angle(S31))];
+write(file1,"('port 3','TE',1,'port 1',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S31_data)
+       );
+S41_data=[f,abs(S41),unwrap(angle(S41))];
+write(file1,"('port 4','TE',1,'port 1',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S41_data)
+       );
+
+# Sx2 Input on port 2
+S12_data=[f,abs(S12),unwrap(angle(S12))];
+write(file1,"('port 1','TE',1,'port 2',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S12_data)
+       );
+S22_data=[f,abs(S22),unwrap(angle(S22))];
+write(file1,"('port 2','TE',1,'port 2',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S22_data)
+       );
+S32_data=[f,abs(S32),unwrap(angle(S32))];
+write(file1,"('port 3','TE',1,'port 2',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S32_data)
+       );
+S42_data=[f,abs(S42),unwrap(angle(S42))];
+write(file1,"('port 4','TE',1,'port 2',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S42_data)
+       );
+
+# Sx3 Input on port 1
+S13_data=[f,abs(S13),unwrap(angle(S13))];
+write(file1,"('port 1','TE',1,'port 3',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S13_data)
+       );
+S23_data=[f,abs(S23),unwrap(angle(S23))];
+write(file1,"('port 2','TE',1,'port 3',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S23_data)
+       );
+S33_data=[f,abs(S33),unwrap(angle(S33))];
+write(file1,"('port 3','TE',1,'port 3',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S33_data)
+       );
+S43_data=[f,abs(S43),unwrap(angle(S43))];
+write(file1,"('port 4','TE',1,'port 3',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S43_data)
+       );
+
+# Sx4 Input on port 4
+S14_data=[f,abs(S14),unwrap(angle(S14))];
+write(file1,"('port 1','TE',1,'port 4',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S14_data)
+       );
+S24_data=[f,abs(S24),unwrap(angle(S24))];
+write(file1,"('port 2','TE',1,'port 4',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S24_data)
+       );
+S34_data=[f,abs(S34),unwrap(angle(S34))];
+write(file1,"('port 3','TE',1,'port 4',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S34_data)
+       );
+S44_data=[f,abs(S44),unwrap(angle(S44))];
+write(file1,"('port 4','TE',1,'port 4',1,'transmission')"
+       +endl+"("
+       +num2str(length(f))
+       +",3)"
+       +endl+num2str(S44_data)
+       );
+
+
+#test passivity of Smatrix
+S_norm = matrix(1,FREQ_PTS);
+S_err = S_norm;
+for (ff=1:FREQ_PTS)
+{
+	S=[S11(ff),S12(ff),S13(ff),S14(ff);
+	   S21(ff),S22(ff),S23(ff),S24(ff);
+	   S31(ff),S32(ff),S33(ff),S34(ff);
+	   S41(ff),S42(ff),S43(ff),S44(ff)];
+
+	S_norm(ff)=norm(S); 
+           S_err(ff) = max(abs( S-transpose(S)));
+}
+
+if (max(S_err) > 0.05){
+  ? '******* Warning: S parameters violate reciprocity by more than 5% *********';
+}
+if (max(S_norm) > 1.01){
+  ? '******* Warning: S parameters not passive *********';
+}
+else {if (max(S_norm) <1){
+  ? '******* S parameters are passive ********'; 
+}}
+if (figs ==1 ){
+  plot (f, S_norm, 'Wavelength (um)', 'Norm |S|', 'g=' + num2str(gap(gg)*1e9) + 'nm r=' + num2str(radius(rr)*1e6) + ' um');
+  plot(c/f*1e6, S_err, 'Wavelength (um)', 'abs(s-transpose(S))','Reciprocity');
+}
+
+
+#XML export
+#if coupling coeff frequency then loop over frequency. for now it is at 1550e-9;
+
+design{1}.value = gap(gg);
+design{2}.value = radius(rr);
+design{3}.value = wg_width(1);
+design{4}.value = si_thickness(1);
+design{5}.value = Lc(1);
+design{6}.value = Etch2(1);
+extracted{1}.value = file1;
+extracted{2}.value = num2str(abs(S42(length(f)/2+0.5))^2); 
+extracted{3}.value = num2str(abs(S32(length(f)/2+0.5))^2);
+extracted{4}.value = num2str(1-abs(S42(length(f)/2+0.5))^2 - abs(S32(length(f)/2+0.5))^2);
+
+#write design/extracted pair
+lookupwrite( xml_filename, design, extracted );
+?"radius loop: " + num2str(rr/length(radius)*100) + "% complete";
+}
+?"gap loop: " + num2str(gg/length(gap)*100) + "% complete";
+}
+?"Simulation - complete ";
+lookupclose( filename );

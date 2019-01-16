@@ -1,0 +1,37 @@
+# Trransient electrical simulation of the detector
+#  setup script
+
+detector_setup_DEVICE_steadystate;
+
+solver_mode=2; #Transient
+
+select('Device region');
+set('solver mode', solver_mode);
+set('solver type', solver_type);
+set("abs lte limit", abs_lte_limit);
+set("rel lte limit", rel_lte_limit);
+set("shutter mode",shutter_mode);
+set("shutter ton", shutter_ton);
+set("shutter tslew", shutter_tslew);
+set("transient max time step", transient_max_time_step); 
+set("transient min time step",  transient_min_time_step); 
+
+select('pulse');
+matlabload(generation_filename_transient);
+igen = rectilineardataset(x,y,z);
+igen.addparameter('v',0); #dummy
+igen.addattribute('G',G);
+importdataset(igen);
+set ("enabled", 1);
+
+voltage_table = [0,0];
+time_table= [0, transient_sim_time_max];
+
+setcontact('anode','transient','fixed contact',1);
+setcontact('anode','transient','voltage',-0);
+setcontact('cathode','transient','fixed contact',0);
+setcontact("cathode","transient", "voltage table", voltage_table );
+setcontact("cathode","transient", "voltage time steps", time_table);
+
+save("vpd_transient");
+

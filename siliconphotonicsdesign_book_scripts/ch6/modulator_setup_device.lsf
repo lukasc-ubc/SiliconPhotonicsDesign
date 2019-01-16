@@ -1,0 +1,274 @@
+# Electrical simulation of the pn-junction phase shifter
+# Step 1: in Lumerical DEVICE; this script accomplishes:
+# 1) Simulate the DC characteristics of the junction, 
+#    to export the spatial charge density, for different voltages
+# 2) Calculates the junction capacitance versus voltage.
+# 3) Calculates the resistance in each slab
+
+newproject; redrawoff;
+
+# modulator geometry variables defined:
+modulator_setup_parameters;
+
+# draw geometry
+addrect; 			# rib
+set('name','rib');
+set('material','Si (Silicon)');
+set('x',x_center); set('x span', width_rib);
+set('y',y_center); set('y span',y_span);
+set('z min',thick_slab); set('z max',thick_slab+thick_rib);
+
+addrect; 			# slab
+set('name','slab');
+set('material','Si (Silicon)');
+set('x',x_center); set('x span', width_slab);
+set('y',y_center); set('y span',y_span);
+set('z min',z_center); set('z max',thick_slab);
+
+addrect; 			# plateau
+set('name','plateau_left');
+set('material','Si (Silicon)');
+set('x',-center_plateau); set('x span', width_plateau);
+set('y',y_center); set('y span',y_span);
+set('z min',z_center); set('z max',thick_slab+thick_rib);
+copy;
+set('name','plateau_right');
+set('x',center_plateau);
+
+addrect;			# contacts
+set('name','anode');
+set('material','Al (Aluminium) - CRC');
+set('x',-center_contact); set('x span', width_contact);
+set('y',y_center); set('y span',y_span);
+set('z min',thick_slab+thick_rib); set('z max',thick_slab+thick_rib+thick_contact);
+copy;
+set('name','cathode');
+set('x',center_contact);
+
+addrect; 			# oxide
+set('name','oxide');
+set('material','SiO2 (Glass) - Sze');
+set('override mesh order from material database',1); set('mesh order',5);
+set('override color opacity from material database',1); set('alpha',0.3);
+set('x',x_center); set('x span',x_span);
+set('y',y_center); set('y span',y_span);
+set('z',z_center); set('z span',z_span);
+
+# draw simulation region
+adddevice;
+set('min edge length',min_edge_length);
+set('max edge length',max_edge_length);
+set('x',x_center); set('x span',x_span-0.1e-6);
+set('y',y_center); set('y span',y_span);
+set('z',z_center); set('z span',z_span);
+
+addmesh;
+set('name','wg mesh');
+set('max edge length',max_edge_length_override);
+set('x',x_center); set('x span', width_rib);
+set('y',y_center); set('y span',y_span);
+set('z min',0); set('z max',thick_slab+thick_rib);
+set('enabled',0);
+
+# draw doping regions
+adddope;
+set('name','pepi');
+set('dopant type','p');	# p type
+set('x',x_center); set('x span',x_span);
+set('y',y_center); set('y span',y_span);
+set('z',center_pepi); set('z span',thick_pepi);
+
+adddiffusion;	
+set('name','p implant');
+set('x',x_center_p); set('x span',x_span_p);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_p); set('z span',z_span_p);
+set('dopant type','p');
+set('face type',face_p);
+set('junction width',width_junction_p);
+set('distribution index',diff_dist_fcn);
+set('concentration',surface_conc_p);
+set('ref concentration',reference_conc_p);
+
+adddiffusion;
+set('name','n implant');
+set('x',x_center_n); set('x span',x_span_n);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_n); set('z span',z_span_n);
+set('dopant type','n');
+set('face type',face_n);
+set('junction width',width_junction_n);
+set('distribution index',diff_dist_fcn);
+set('concentration',surface_conc_n);
+set('ref concentration',reference_conc_n);
+
+adddiffusion;	
+set('name','p++');
+set('x',x_center_p_contact); set('x span',x_span_p_contact);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_p_contact); set('z span',z_span_p_contact);
+set('dopant type','p');
+set('face type',face_p_contact);
+set('junction width',width_junction_p_contact);
+set('distribution index',diff_dist_fcn_contact);
+set('concentration',surface_conc_p_contact);
+set('ref concentration',reference_conc_p_contact);
+
+adddiffusion;
+set('name','n++');
+set('x',x_center_n_contact); set('x span',x_span_n_contact);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_n_contact); set('z span',z_span_n_contact);
+set('dopant type','n');
+set('face type',face_n_contact);
+set('junction width',width_junction_n_contact);
+set('distribution index',diff_dist_fcn_contact);
+set('concentration',surface_conc_n_contact);
+set('ref concentration',reference_conc_n_contact);
+
+adddiffusion;	
+set('name','p wg implant');
+set('x',x_center_p_rib); set('x span',x_span_p_rib);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_p_rib); set('z span',z_span_p_rib);
+set('dopant type','p');
+set('face type',face_p_rib);
+set('junction width',width_junction_p_rib);
+set('distribution index',diff_dist_fcn_rib);
+set('concentration',surface_conc_p_rib);
+set('ref concentration',reference_conc_p_rib);
+
+adddiffusion;
+set('name','n wg implant');
+set('x',x_center_n_rib); set('x span',x_span_n_rib);
+set('y',y_center); set('y span',y_span);
+set('z',z_center_n_rib); set('z span',z_span_n_rib);
+set('dopant type','n');
+set('face type',face_n_rib);
+set('junction width',width_junction_n_rib);
+set('distribution index',diff_dist_fcn_rib);
+set('concentration',surface_conc_n_rib);
+set('ref concentration',reference_conc_n_rib);
+
+# draw monitors
+addchargemonitor;	# capacitance
+set('monitor type',6); # 2D y-normal
+set('integrate total charge',1);
+set('x',x_center); set('x span',x_span);
+set('z min',0); set('z max',thick_slab+thick_rib);
+set('save data',1);
+set('filename',filename_mzi);
+
+# set contacts
+addcontact;		# anode
+setcontact('new_contact','name','anode');
+setcontact('anode','geometry','anode');
+addcontact;		# cathode
+setcontact('new_contact','name','cathode');
+setcontact('cathode','geometry','cathode');
+setcontact('cathode','dc','fixed contact',0);
+setcontact('cathode','dc','range start',voltage_start);
+setcontact('cathode','dc','range stop',voltage_stop);
+setcontact('cathode','dc','range interval',voltage_interval);
+
+# 1) Simulate the DC characteristics of the junction, 
+#    export the spatial charge density, for different voltages
+save('pn_wg_dcsweep.ldev');
+run;
+
+
+# 2) Calculates the junction capacitance versus voltage.
+#    compare with experimental results
+CV_baehrjones = [-0.4, 0.261; -0.25, 0.248; 0, 0.223; 0.25, 0.208; 0.5, 0.198; 0.75, 0.190; 1.0, 0.184; 1.5, 0.175; 2.0, 0.168; 3.0, 0.157; 4.0, 0.150]; 
+
+# perform two simulations, separated by 'dv', for each voltage step.
+# this is used to determine the change in charge for the small voltage change,
+# to find the capacitance.
+vmin = -0.4; vmax = 4; N = 12;
+dv = 0.025;
+vdv = matrix(2*N,1);
+vdv(1:2:(2*N)) = linspace(vmin,vmax,N);
+vdv(2:2:(2*N)) = vdv(1:2:(2*N)) + sign(vmax)*dv;
+
+switchtolayout;
+
+# set contact bias
+setcontact('cathode','dc','voltage table',vdv);
+setcontact('cathode','dc','dc mode',2);
+setcontact('cathode','dc','fixed contact',0);
+
+# refine mesh for C calculation
+setnamed('wg mesh','enabled',1);
+
+# don't save this result to file
+setnamed('monitor','save data',0);
+
+save('pn_wg_cvanalysis.ldev');
+run;
+
+total_charge = getresult('monitor','total_charge');
+Qn = e*pinch(total_charge.n);
+Qp = e*pinch(total_charge.p);
+
+Cn = abs(Qn(2:2:(2*N))-Qn(1:2:(2*N)))/dv;
+Cp = abs(Qp(2:2:(2*N))-Qp(1:2:(2*N)))/dv;
+V = vdv(1:2:(2*N));
+
+# User should check for convergence; Cn and Cp should be equal:
+#plotxy(V,Cn*1e15*1e-6,V,Cp*1e15*1e-6,"Voltage (V)","Capacitance (fF/um)");
+
+# Final result:
+plotxy(V,0.5*(Cn+Cp)*1e15*1e-6,CV_baehrjones(1:11,1),CV_baehrjones(1:11,2),"Voltage (V)","Capacitance (fF/um)");
+
+#
+# 3) Calculate the resistance in each slab
+#    Add a contact in the middle then adjust simulation region
+switchtolayout;
+
+addrect; 			# rib contact
+set('name','r_contact');
+set('material','Al (Aluminium) - CRC');
+set('x',x_center); set('x span', 0.5*width_rib);
+set('y',y_center); set('y span',y_span);
+set('z min',z_center); set('z max',thick_slab+thick_rib+thick_contact);
+set('override mesh order from material database',1);
+set('mesh order',1);
+
+vtest_max = 0.5;
+addcontact;
+setcontact('new_contact','name','r_test');
+setcontact('r_test','geometry','r_contact');
+setcontact('r_test','dc','fixed contact',0);
+setcontact('r_test','dc','range start',0);
+setcontact('r_test','dc','range stop',vtest_max);
+setcontact('r_test','dc','range interval',0.1);
+
+setcontact('anode','dc','fixed contact',1);
+setcontact('cathode','dc','fixed contact',1);
+
+setnamed('Device region','x',x_center); 
+setnamed('Device region','x span',x_span-0.1e-6);
+setnamed('Device region','solver type','newton');
+setnamed('Device region','x min',x_center);
+ 
+save('pn_wg_R.ldev');
+run;
+
+test_result = getresult('Device region','r_test');
+Itest = pinch(test_result.I);
+Itest_max = abs(Itest(length(Itest)));
+?"R_cathode = " + num2str(vtest_max/Itest_max * getnamed('Device region','norm length')/0.01) + " Ohm-cm";
+
+switchtolayout;
+setnamed('Device region','x',x_center); 
+setnamed('Device region','x span',x_span-0.1e-6);
+setnamed('Device region','x max',x_center);
+ 
+run;
+
+test_result = getresult('Device region','r_test');
+Itest = pinch(test_result.I);
+Itest_max = abs(Itest(length(Itest)));
+?"R_anode = " + num2str(vtest_max/Itest_max * getnamed('Device region','norm length')/0.01) + " Ohm-cm";
+
+

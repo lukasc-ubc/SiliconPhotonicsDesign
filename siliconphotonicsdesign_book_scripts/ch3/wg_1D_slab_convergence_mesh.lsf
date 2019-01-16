@@ -1,0 +1,18 @@
+# wg_1D_slab_convergence_mesh.lsf - perform convergence test, Lumerical MODE
+
+wg_1D_slab;      # Draw waveguides and setup the simulation
+
+mesh_list=[0.01; 0.1; 1:1:50]*1e-9;          # vary the mesh size
+refine_list=[1,3];                # 1=Staircase, 3=Conformal mesh
+neff=matrix(length(mesh_list),length(refine_list)); 
+for (y=1:length(refine_list)) {
+	switchtolayout; select ("MODE"); set ("z span",2e-6);
+	set ("mesh refinement", refine_list(y));       
+	for (x=1:length(mesh_list)) {
+		switchtolayout;  select("MODE"); set("dz", mesh_list(x));
+		n=findmodes;
+		neff(x,y)=getdata ("MODE::data::mode1","neff");
+	} 
+}
+plot(mesh_list,real(neff));   legend("Staircase mesh","Conformal mesh");
+matlabsave ('out/wg_slab_convergence_mesh'); 

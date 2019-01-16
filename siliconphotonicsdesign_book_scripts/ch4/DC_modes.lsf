@@ -1,0 +1,31 @@
+# DC_modes.lsf - Calculate directional coupler's even and odd modes, Lumerical MODE Solutions
+
+DC_wg_draw;
+
+# define simulation parameters
+wavelength = 1.55e-6;
+meshsize = 10e-9; # maximum mesh size
+
+# add 2D mode solver (waveguide cross-section)
+addfde; set("solver type", "2D X normal");
+set("x", 0);
+set("y", 0);        set("y span", Y_span);
+set("z max", Zmax); set("z min", Zmin);
+set("wavelength", wavelength); set("solver type","2D X normal");
+set("define y mesh by","maximum mesh step"); set("dy", meshsize);
+set("define z mesh by","maximum mesh step"); set("dz", meshsize);
+N_modes=2; # modes to output
+set("number of trial modes",10);
+
+gap=0.5e-6;   switchtolayout;
+setnamed("waveguide2","y", -width_ridge/2-gap/2);
+setnamed("waveguide1","y", width_ridge/2+gap/2);
+n=findmodes;
+z=getdata("FDE::data::mode1","z"); y=getdata("FDE::data::mode1","y");
+E3=pinch(getelectric("FDE::data::mode1"));      image(y,z,E3);
+Ey=pinch(getdata("FDE::data::mode1","Ey"));     image(y,z,real(Ey));
+index=pinch(getdata("FDE::data::material","index_x"));
+matlabsave("DC_mode1",y,z,E3,Ey,index);
+E3=pinch(getelectric("FDE::data::mode2"));      image(y,z,E3);
+Ey=pinch(getdata("FDE::data::mode2","Ey"));     image(y,z,real(Ey));
+matlabsave("DC_mode2",y,z,Ey,E3);

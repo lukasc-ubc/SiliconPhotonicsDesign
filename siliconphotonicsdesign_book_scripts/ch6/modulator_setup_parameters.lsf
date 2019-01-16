@@ -1,0 +1,86 @@
+# Parameter definitions for the modulator, used for electrical calculations in DEVICE and optical calculations in MODE
+
+# define wafer and waveguide structure
+thick_rib = 0.13e-6;
+width_rib = 0.5e-6;
+thick_slab = 0.09e-6;
+width_slab = 5e-6;
+center_plateau = 3.75e-6;
+width_plateau = 2.5e-6;
+
+# define doping
+center_pepi = 0.1e-6;		# pepi
+thick_pepi = 0.3e-6;
+
+x_center_p = -3.075e-6;	# implant		
+x_span_p = 5.85e-6;
+z_center_p = -0.105e-6;
+z_span_p = 0.39e-6;
+diff_dist_fcn = 1; # 0 for erfc, 1 for gaussian
+face_p = 5; # upper z
+width_junction_p = 0.1e-6;
+surface_conc_p = 7e17*1e6;
+reference_conc_p = 1e6*1e6;
+x_center_n = 3.075e-6;
+x_span_n = 5.85e-6;
+z_center_n = -0.105e-6;
+z_span_n = 0.39e-6;
+face_n = 5; # upper z
+width_junction_n = 0.1e-6;
+surface_conc_n = 5e17*1e6;
+reference_conc_n = 1e6*1e6;
+
+x_center_p_contact = -4e-6;	# contact		
+x_span_p_contact = 4e-6;
+z_center_p_contact = -0.04e-6;
+z_span_p_contact = 0.52e-6;
+diff_dist_fcn_contact = 1; # 0 for erfc, 1 for gaussian
+face_p_contact = 5; # upper z
+width_junction_p_contact = 0.1e-6;
+surface_conc_p_contact = 1e19*1e6;
+reference_conc_p_contact = 1e6*1e6;
+x_center_n_contact = 4e-6;
+x_span_n_contact = 4e-6;
+z_center_n_contact = -0.04e-6;
+z_span_n_contact = 0.52e-6;
+face_n_contact = 5; # upper z
+width_junction_n_contact = 0.1e-6;
+surface_conc_n_contact = 1e19*1e6;
+reference_conc_n_contact = 1e6*1e6;
+
+x_center_p_rib = -0.12e-6;	# waveguide		
+x_span_p_rib = 0.36e-6;
+z_center_p_rib = 0.1275e-6;
+z_span_p_rib = 0.255e-6;
+diff_dist_fcn_rib = 1; # 0 for erfc, 1 for gaussian
+face_p_rib = 0; # lower x
+width_junction_p_rib = 0.12e-6;
+surface_conc_p_rib = 5e17*1e6;
+reference_conc_p_rib = 1e6*1e6;
+x_center_n_rib = 0.095e-6;
+x_span_n_rib = 0.31e-6;
+z_center_n_rib = 0.14e-6;
+z_span_n_rib = 0.24e-6;
+face_n_rib = 1; # upper x
+width_junction_n_rib = 0.11e-6;
+surface_conc_n_rib = 7e17*1e6;
+reference_conc_n_rib = 1e6*1e6;
+
+# define contacts 
+center_contact = 4.4e-6;
+width_contact = 1.2e-6;
+thick_contact = 0.5e-6;
+voltage_start = -0.5;
+voltage_stop = 4;
+voltage_interval = 0.25;
+
+# define simulation region
+min_edge_length = 0.004e-6;
+max_edge_length = 0.6e-6;
+max_edge_length_override = 0.007e-6; # mesh override region
+x_center = 0; x_span = 2*center_contact + width_contact;
+y_center = 0; y_span = 1e-6; # irrelevant for 2D cross section
+z_center = 0; z_span = 5e-6;
+
+# define monitors
+filename_mzi = 'mzi_carrier.mat';

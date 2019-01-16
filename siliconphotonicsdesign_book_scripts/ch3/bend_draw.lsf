@@ -1,0 +1,64 @@
+# bend_draw.lsf  - Define simulation parameters, draw the bend
+# input: variable "bend_radius" pre-defined
+
+# define wafer structure
+thick_Clad = 3e-6;
+thick_Si = 0.22e-6;
+thick_BOX = 2e-6;
+thick_Slab = 0;           # for strip waveguides
+#thick_Slab = 0.09e-6;    # for rib waveguides
+width_ridge = 0.5e-6;     # width of the waveguide
+
+# define materials
+material_Clad = "SiO2 (Glass) - Const";
+material_BOX  = "SiO2 (Glass) - Const";
+material_Si   = "Si (Silicon) - Dispersive & Lossless";
+materials;     # run script to add materials
+
+Extra=0.5e-6;
+thick_margin = 500e-9;
+width_margin=2e-6;
+length_input=1e-6;
+
+Xmin = 0-width_ridge/2-width_margin;
+Xmax = bend_radius+length_input;
+Zmin =-thick_margin;  Zmax=thick_Si+thick_margin;
+Ymin = 0;
+Ymax = bend_radius+width_ridge/2+width_margin+length_input/2;
+
+addrect;  set('name','Clad');  set("material", material_Clad);
+set('y min', Ymin-Extra);  set('y max', Ymax+Extra);
+set('z min', 0);           set('z max', Zmax);
+set('x min', Xmin-Extra);  set('x max', Xmax+Extra);
+set('alpha', 0.2);
+
+addrect;  set("name", "BOX");  set("material", material_BOX);
+set('x min', Xmin-Extra);  set('x max', Xmax+Extra);
+set('z min', -thick_BOX);  set('z max', 0);
+set('y min', Ymin-Extra);  set('y max', Ymax+Extra);
+set('alpha', 0.3);
+
+addrect;  set("name", "slab");  set("material",material_Si);
+set('y min', Ymin-Extra);  set('y max', Ymax+Extra);
+set('z min', 0);           set('z max', thick_Slab);
+set('x min', Xmin-Extra);  set('x max', Xmax+Extra);
+set('alpha', 0.4);
+
+addrect;  set('name', 'input_wg'); set("material",material_Si);
+set('x min', -width_ridge/2); set('x max', width_ridge/2);
+set('z min', 0);              set('z max', thick_Si);
+set('y min', Ymin-2e-6);      set('y max', Ymin+length_input);
+
+addrect; set('name', 'output_wg'); set("material",material_Si);
+set('y', length_input+bend_radius); set('y span', width_ridge);
+set('z min', 0);           set('z max', thick_Si);
+set('x min', bend_radius); set('x max', bend_radius+length_input+2e-6);
+
+addring; set('name', 'bend');  set("material",material_Si);
+set('x', bend_radius);
+set('y', length_input);
+set('z min', 0);   set('z max', thick_Si);
+set('theta start', 90); set('theta stop', 180);
+set('outer radius', bend_radius+0.5*width_ridge);
+set('inner radius', bend_radius-0.5*width_ridge);
+

@@ -1,0 +1,39 @@
+# wg_2D_mode_profile.lsf - calculate the mode profiles of the waveguide
+
+wg_2D;   # run the script to draw the waveguide and set up the simulation
+
+# output filename
+clad = substring(material_Clad, 1, (findstring(material_Clad,' '))-1);
+system("mkdir -p out");
+?FILE = "out/wl" + num2str(wavelength*1e9) +"nm_" + clad + "-clad" + 
+        "_"+ num2str(thick_Si*1e9) + "nm-wg_" + num2str(thick_Slab*1e9)+"nm-ridge";
+
+# find the material dispersion (using 2 frequency points), for energy density calculation
+switchtolayout;  set("wavelength", wavelength*(1 + .001) ); 
+run;  mesh;
+f1 = getdata("FDE::data::material","f");
+eps1 = pinch(getdata("FDE::data::material","index_x"))^2;
+switchtolayout;  set("wavelength", wavelength*(1 - .001) ); 
+run;  mesh;
+f3 = getdata("FDE::data::material","f");
+eps3 = pinch(getdata("FDE::data::material","index_x"))^2;
+re_dwepsdw = real((f3*eps3-f1*eps1)/(f3-f1));    
+
+switchtolayout;  set("wavelength", wavelength); 
+n=findmodes;
+neff = matrix ( modes );  TE_pol = matrix (modes );
+for (m=1:modes) {          # extract mode data     
+	neff(m) = abs( getdata ("FDE::data::mode"+num2str(m),"neff") );
+	TE_pol(m) = getdata("FDE::data::mode"+num2str(m),"TE polarization fraction");
+	if ( TE_pol(m) > 0.5 )   # identify the TE-like or TM-like modes
+		{    pol = "TE";   }   else   {   pol = "TM";  }
+	z  = getdata("FDE::data::mode"+num2str(m),"z"); y=getdata("FDE::data::mode"+num2str(m),"y");
+	E1 = pinch(getelectric("FDE::data::mode"+num2str(m)));
+	H1 = pinch(getmagnetic("FDE::data::mode"+num2str(m)));
+	W1 = 0.5*(re_dwepsdw*eps0*E1+mu0*H1);
+	image(y,z,E1);   # plot E-field intensity of mode
+	setplot("title","mode" + num2str(m) + "("+pol+"): "+"neff:" + num2str(neff(m)));      
+	image(y,z,W1);	# plot energy density of mode
+	setplot("title","mode" + num2str(m) + "("+pol+"): "+"neff:" + num2str(neff(m)));      
+#	matlabsave ( FILE + "_"+ num2str(m) );
+}

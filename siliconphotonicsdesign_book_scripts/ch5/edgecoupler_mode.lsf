@@ -1,0 +1,143 @@
+# Lumerical MODE script to estimate edge coupling efficiency for the nanotaper with different gaussian beams
+cleardcard; 
+closeall; redrawoff;
+
+wg_list=[180e-9];
+t_list=[220e-9];
+lambda_list=[1.31e-6, 1.55e-6];
+NA_list=0.1:0.02:0.8;
+PLOT_misalignment = 1;
+PLOT_modeprofiles = 1;
+
+write ('edgecoupler_mode.txt','WG_w, WG_t, Wavelength, Best NA TE, Best coupling TE, Best NA TM, Best coupling TM');
+
+for (l=1:length(t_list)) {
+	for (k=1:length(wg_list)) {
+		switchtolayout; new;
+	
+		# Draw the silicon nano-taper 
+		addrect; set('name','Si waveguide');
+		set('x span',wg_list(k));
+		set('y min',0);	set('y max',t_list(l));
+		set('material','Si (Silicon) - Palik');
+
+		addrect; set('name','Oxide');
+		set('x span',10e-6);
+		set('y min',-2e-6); set('y max',2e-6);
+		set('material','SiO2 (Glass) - Palik');
+		set('override mesh order from material database',1);
+		set('mesh order',3);
+
+		addfde; #  create simulate mesh
+		set('x span',6e-6); set('y span',4e-6);
+		set('mesh cells x',100); set('mesh cells y',200);
+
+		addmesh;  # mesh override, higher resolution in the waveguide.
+		set('x span',0.5e-6); set('y min',-0.1e-6); set('y max',t_list(l)+0.1e-6);
+		set('dx',10e-9); set('dy',10e-9);
+
+		run;
+
+		for (j=1:length(lambda_list)) {
+		
+			# for energy density calculation
+			# find the material dispersion (using 2 frequency points)
+			switchtolayout;  select('MODE');
+			set("wavelength", lambda_list(j)*(1 + .001) ); 
+			run;  mesh;
+			f1 = getdata("MODE::data::material","f");
+			eps1 = pinch(getdata("MODE::data::material","index_x"))^2;
+			switchtolayout;  set("wavelength", lambda_list(j)*(1 - .001) ); 
+			run;  mesh;
+			f3 = getdata("MODE::data::material","f");
+			eps3 = pinch(getdata("MODE::data::material","index_x"))^2;
+			re_dwepsdw = real((f3*eps3-f1*eps1)/(f3-f1));    
+
+			FILE='EdgeCoupling_'+num2str(lambda_list(j)*1e9) +'nm_W='+ num2str(wg_list(k)*1e9) + 'nm_t=' +num2str(t_list(l)*1e9)+'nm';
+			
+			setanalysis('wavelength',lambda_list(j) );
+			setanalysis('search',1); setanalysis('use max index',1);
+			setanalysis('number of trial modes',20);
+
+			n=findmodes;
+			
+			# find out which mode is TE and which is TM
+			pol1=getdata('mode1','TE polarization fraction');
+			pol2=getdata('mode2','TE polarization fraction');
+			if (pol1 > 0.8) { TEmode='mode1'; }  if (pol2 > 0.8) { TEmode='mode2'; }
+			if (pol1 < 0.2) { TMmode='mode1'; }  if (pol2 < 0.2) { TMmode='mode2'; }
+
+			# save the mode profiles
+			if (PLOT_modeprofiles) {
+				x  = getdata(TEmode,"x"); y=getdata(TEmode,"y");
+				E1_TE = pinch(getelectric(TEmode)); H1 = pinch(getmagnetic(TEmode));
+				W_TE = 0.5*(re_dwepsdw*eps0*E1_TE+mu0*H1);
+				E1_TM = pinch(getelectric(TMmode)); H1 = pinch(getmagnetic(TMmode));
+				W_TM = 0.5*(re_dwepsdw*eps0*E1_TM+mu0*H1);
+			}
+			setanalysis('sample span',6e-6);
+			edge_coupling_TE=matrix(length(NA_list),1);
+			edge_coupling_TM=matrix(length(NA_list),1);
+			gaussianbeams=matrix(length(NA_list)*2,1);
+
+			setanalysis('polarization angle',0);  # TE
+			for (i=1:length(NA_list))  {
+				setanalysis('NA',NA_list(i));	
+				beam_name=createbeam; 
+				cou=overlap(TEmode,'gaussian'+num2str(i),0,t_list(l)/2,0); 
+				?edge_coupling_TE(i)=cou(2);   # power coupling		
+			}
+
+			setanalysis('polarization angle',90);  # TM
+			for (i=1:length(NA_list))  {
+				setanalysis('NA',NA_list(i));
+				beam_name=createbeam; 
+				cou=overlap(TMmode,'gaussian'+num2str(i+length(NA_list)), 0,t_list(l)/2,0); 
+				?edge_coupling_TM(i)=cou(2);   # power coupling	
+			}
+
+			plot(NA_list, edge_coupling_TE, edge_coupling_TM, 'Lens NA', 'Coupling efficiency', num2str(lambda_list(j)*1e6)+ 'um,W='+ num2str(wg_list(k)*1e9)+'nm,t='+ num2str(t_list(l)*1e9)+'nm');
+			legend('TE','TM');
+			setplot ('y min', max ([ min( [edge_coupling_TE, edge_coupling_TM]), 0.2] )   );
+			setplot ('y max',1);
+			exportfigure(FILE+'(linear).jpg');
+			plot(NA_list, 10*log10(edge_coupling_TE), 10*log10(edge_coupling_TM), 'Lens NA', 'Coupling efficiency (dB)', num2str(lambda_list(j)*1e6)+'um,W='+ num2str(wg_list(k)*1e9)+'nm,t='+ num2str(t_list(l)*1e9)+'nm');
+			legend('TE','TM');
+			setplot ('y min', max ([ min( 10*log10([edge_coupling_TE, edge_coupling_TM])), -4] )   );
+			setplot ('y max',0);
+			exportfigure(FILE+'(dB).jpg');
+
+			best_coupling_TE = max(10*log10(edge_coupling_TE)); posTE=find(10*log10(edge_coupling_TE), best_coupling_TE); best_NA_TE = NA_list(posTE);
+			best_coupling_TM = max(10*log10(edge_coupling_TM)); posTM=find(10*log10(edge_coupling_TM), best_coupling_TM); best_NA_TM = NA_list(posTM);
+
+			# save the gaussian mode profiles
+			if (PLOT_modeprofiles) {
+				x_g  = getdata('gaussian'+num2str(posTE),"x"); 
+				y_g=getdata('gaussian'+num2str(posTE),"y");
+				E1 = pinch(getelectric('gaussian' +num2str(posTE))); 
+				H1 = pinch(getmagnetic('gaussian' +num2str(posTE)));
+				W_g_TE = 0.5*(1*eps0*E1+mu0*H1);
+				E1 = pinch(getelectric('gaussian' +num2str(posTM+length(NA_list)))); 
+				H1 = pinch(getmagnetic('gaussian' +num2str(posTM+length(NA_list))));
+				W_g_TM = 0.5*(1*eps0*E1+mu0*H1);
+			}
+			
+			# calculate the fibre misalignment sensitivity
+			if (PLOT_misalignment) {
+				xlist=[-2:.1:2]*1e-6;
+				xTE_misalign=matrix(length(xlist)); xTM_misalign=matrix(length(xlist));
+				yTE_misalign=matrix(length(xlist)); yTM_misalign=matrix(length(xlist));
+				for (m=1:length(xlist)) {
+					cou=overlap(TEmode,'gaussian'+num2str(i), xlist(m), t_list(l)/2,0); xTE_misalign(m)=cou(2);
+					cou=overlap(TMmode,'gaussian'+num2str(i+length(NA_list)), xlist(m),t_list(l)/2,0); xTM_misalign(m)=cou(2);
+					cou=overlap(TEmode,'gaussian'+num2str(i), 0, t_list(l)/2+xlist(m),0); yTE_misalign(m)=cou(2);
+					cou=overlap(TMmode,'gaussian'+num2str(i+length(NA_list)), 0, t_list(l)/2+xlist(m),0); yTM_misalign(m)=cou(2);
+				}	
+				plot (xlist, xTE_misalign, yTE_misalign, xTM_misalign, yTM_misalign);
+				legend('xTE_misalign', 'yTE_misalign', 'xTM_misalign', 'yTM_misalign');		
+			}				
+			matlabsave ( FILE + '.mat' );
+			write ('edgecoupler_mode.txt', num2str(wg_list(k)*1e9)+', '+ num2str(t_list(l)*1e9)+', '+ num2str(lambda_list(j)*1e6) +', ' + num2str(best_NA_TE)+', '+ num2str(best_coupling_TE) +', '+ num2str(best_NA_TM)+', '+ num2str(best_coupling_TM)  );
+		}
+	}
+}

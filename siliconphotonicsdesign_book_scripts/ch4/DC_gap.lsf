@@ -1,0 +1,20 @@
+# DC_gap.lsf - Calculate directional coupler's gap dependence, Lumerical MODE Solutions
+
+gap_list=[.1:.1:1]*1e-6; # sweep waveguide width
+neff = matrix (length(gap_list), N_modes );
+L_cross= matrix (length(gap_list));
+
+for(jj=1:length(gap_list)) {
+  switchtolayout;
+  setnamed("waveguide2","y", -width_ridge/2-gap_list(jj)/2);
+  setnamed("waveguide1","y", width_ridge/2+gap_list(jj)/2);
+  n=findmodes;
+  for (m=1:N_modes) { # extract mode data
+    neff (jj,m) =abs( getdata ("MODE::data::mode"+num2str(m),"neff") );
+  }
+  L_cross(jj) = wavelength / 2 / abs( neff (jj,1)-neff (jj,2));
+}
+
+plot (gap_list*1e9, L_cross*1e6, "Gap [nm]", "Cross-over length [micron]", "Cross-over length versus gap");
+plot (gap_list*1e9, L_cross*1e6, "Gap [nm]", "Cross-over length [micron]", "Cross-over length versus gap","logy");
+matlabsave ("DC_gap", L_cross,neff,gap_list);

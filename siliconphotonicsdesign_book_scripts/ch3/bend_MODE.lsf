@@ -1,0 +1,76 @@
+# bend_MODE.lsf: script to:
+# 1) calculate the mode profile in a waveguide with varying bend radius 
+# 2) calculate mode mismatch loss with straight waveguide and radiation loss vs. radius
+
+# Example with default parameters requires 1.2 GB ram.
+
+radii= [0, 100, 50, 30, 20, 10, 5, 4, 3]*1e-6;
+# min radius as defined in: 
+# http://docs.lumerical.com/en/solvers_finite_difference_eigenmode_bend.html
+wg_2D_draw;   # run script to draw the waveguide
+
+# define simulation parameters
+wavelength    = 1.55e-6;   
+# maximum mesh size; 40 gives reasonable results
+meshsize      = 10e-9;       
+modes         = 4;           # modes to output
+
+# add 2D mode solver (waveguide cross-section)
+addfde;  set("solver type", "2D X normal");
+set("x", 0);  
+width_margin  = 2e-6;	# ensure it is big enough to accurately measure radiation loss via PMLs
+height_margin = 0.5e-6;  
+Zmin = -height_margin;  Zmax = thick_Si + height_margin;
+set('z max', Zmax);  set('z min', Zmin);
+Y_span = 2*width_margin + width_ridge; 
+Ymin = -Y_span/2;  Ymax = -Ymin;
+set('y',0);  set('y span', Y_span);
+set("wavelength", wavelength);   set("solver type","2D X normal");
+set("y min bc","PML"); set("y max bc","PML"); # radiation loss
+set("z min bc","metal"); set("z max bc","metal");  # faster
+set("define y mesh by","maximum mesh step"); 
+set("dy", meshsize);
+set("define z mesh by","maximum mesh step"); 
+set("dz", meshsize);
+set("number of trial modes",modes);
+cleardcard;  # Clears all the global d-cards.
+
+# solve modes in the waveguide:
+n=length(radii); Neff=matrix(n); LossdB_m=matrix(n); 
+LossPerBend=matrix(n); power_coupling=matrix(n); 
+for (i=1:n) {
+	if (radii(i)==0) {
+		setanalysis ('bent waveguide', 0); # Cartesian
+	} else {
+		setanalysis ('bent waveguide', 1); # cylindrical 
+		setanalysis ('bend radius', radii(i));
+	}
+	setanalysis ('number of trial modes', 4); 
+	nn = findmodes;
+	if (nn>0) {
+		Neff(i) = getdata('FDE::data::mode1','neff'); 
+		LossdB_m(i) = getdata('FDE::data::mode1','loss'); # per m
+		LossPerBend(i) = LossdB_m(i) * 2*pi*radii(i)/4;
+		copydcard( 'mode1', 'radius' + num2str(radii(i)) );
+
+		# Perform mode-overlap calculations between the straight and bent waveguides 
+		if (radii(i)>0) {
+			out = overlap('::radius0','::radius'+num2str(radii(i))); 
+			power_coupling(i)=out(2); # power coupling
+		}
+
+		# plot mode profile:
+		E3=pinch(getelectric('FDE::data::mode1')); y=getdata('FDE::data::mode1','y'); z=getdata('FDE::data::mode1','z'); 
+		image(y,z,E3); 
+		exportfigure('out/bend_mode_profile_radius'+ num2str(radii(i))); 
+		matlabsave('out/bend_mode_profile_radius'+ num2str(radii(i)), y,z,E3);
+	}
+}
+PropagationLoss=2 *100; # dB/cm *100 --- dB/m
+LossMM=-10*log10( power_coupling(2:n)^2 ); # plot 2X couplings per 90 degree bend vs radius (^2 for two)
+LossR=LossPerBend (2:n)-LossPerBend(1); 
+LossP=PropagationLoss*2*pi*radii(2:n)/4; # quarter turn
+plot ( radii (2:n)*1e6, LossMM, LossR, LossP, LossMM+LossR+LossP, "Radius [micron]", "Loss [dB]" ,"Bend Loss", "loglog, plot points");
+legend ('Mode Mismatch Loss', 'Radiation loss','2 dB/cm propagation loss', 'Total Loss');
+matlabsave ('out/bend_MODE_profiles_coupling', radii, power_coupling, LossPerBend);
+

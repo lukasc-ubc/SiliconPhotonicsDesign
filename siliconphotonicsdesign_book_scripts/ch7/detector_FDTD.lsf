@@ -1,0 +1,179 @@
+# Optical simulation of detector
+# Step 1: in Lumerical FDTD; this script accomplishes:
+# 1) calculates the generation rate of eh pairs in Ge
+# 2) Exports the results to DEVICE for the electrical modelling.
+
+newproject; redrawoff;
+
+# modulator geometry variables defined:
+detector_setup_parameters;
+
+# define simulation region for FDTD calculations
+
+override_mesh_size = 0.025e-6;
+override_mesh_size_smaller=0.02e-6;
+
+# draw geometry
+addrect; 			# oxide
+set('name','oxide');
+set('material','SiO2 (Glass) - Palik');
+set('override mesh order from material database',1); set('mesh order',5);
+set('override color opacity from material database',1); set('alpha',0.3);
+set('x',x_center); set('x span',oxide_width_x);
+set('y',y_center); set('y span',oxide_width_y);
+set('z',0); set('z span',oxide_thickness);
+
+addrect;
+set('name','silicon');   #silicon1
+set('material','Si (Silicon) - Palik');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span',si_1_width_x);
+set('y min',si_1_width_y_min); set('y max',si_1_width_y_max);
+set('z',si_z); set('z span',si_1_thickness);
+
+addrect;
+set('name','silicon');   #silicon2
+set('material','Si (Silicon) - Palik');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span',si_2_width_x);
+set('y min',si_2_width_y_min); set('y max',si_2_width_y_max);
+set('z',si_z); set('z span',si_2_thickness);
+
+
+addpyramid;
+set('name','Ge');   #germanium
+set('material','Ge (Germanium) - Palik');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span bottom',ge_width_x_bottom); set('x span top',ge_width_x_top);
+set('y',ge_y); set('y span bottom',ge_width_y_bottom); set('y span top',ge_width_y_top);
+z_ge=(si_z+ge_thickness/2+si_1_thickness/2);
+set('z span',ge_thickness); set('z',z_ge); 
+
+
+addpyramid;
+set('name','cathode');   #PEC (
+set('material','PEC (Perfect Electrical Conductor)');
+set('override mesh order from material database',1); set('mesh order',2);
+set('x',x_center); set('x span bottom',contact_width_x_bottom); set('x span top',contact_width_x_top);
+set('y',contact_y); set('y span bottom',contact_width_y_bottom); set('y span top',contact_width_y_top);
+z_pec=z_ge+ge_thickness/2+contact_thickness/2;
+set('z',z_pec); set('z span',contact_thickness);
+
+
+
+# simulation region
+addfdtd;
+set('x',x_center); set('x span',x_span);
+set('y',y_center_region); set('y span',y_span);
+set('z',z_center); set('z span',z_span); 
+set('x min bc', 'Anti-Symmetric');
+set("mesh accuracy", 1);
+set("simulation time", 4000e-15);
+
+addmesh;
+set('dz',override_mesh_size_smaller);
+set('override y mesh',0);
+set('override x mesh',0);
+set('z',0.46e-6); set('z span',0.48e-6);
+
+addmesh;
+set('dz',override_mesh_size);
+set('override y mesh',0);
+set('override x mesh',0);
+set('z',0.75e-6); set('z span',0.1e-6);
+
+
+
+addmesh;
+set('dz',override_mesh_size);
+set('override y mesh',0);
+set('override x mesh',0);
+set('z',0.17e-6); set('z span',0.1e-6);
+
+
+#source
+
+addmode;
+set("injection axis", "y-axis");
+set('x',x_center); set('x span',x_span);
+set('y',0);
+set('z',z_center); set('z span',z_span);
+set("wavelength start", lambda);
+set("wavelength stop", lambda);
+updatesourcemode;
+
+setglobalmonitor("frequency points",1);
+
+addprofile;
+set('name','xy');   # top view
+set("monitor type","2D Z-normal");
+set('x',x_center); set('x span',x_span*1.5);
+set('y',y_center_region); set('y span',y_span*1.5);
+set('z',z_center);
+
+addprofile;
+set('name','xy2');  # top view, at the Ge-metal interface  
+set("monitor type","2D Z-normal");
+set('x',x_center); set('x span',x_span*1.5);
+set('y',y_center_region); set('y span',y_span*1.5);
+set('z',si_1_thickness+ge_thickness-10e-9);
+
+addprofile;
+set('name','yz');  # cross-section along the direction of propagation
+set("monitor type","2D X-normal");
+set('x',x_center);
+set('y',y_center_region); set('y span',y_span*1.5);
+set('z',z_center); set('z span',z_span*1.5);
+
+addprofile;
+set('name','xz');   # cross-section perpendicular to the direction of propagation
+set("monitor type","2D Y-normal");
+set('x',x_center); set('x span',x_span*1.5);
+set('y',ge_y-ge_width_y_top/2); # cross-section at the beginning of the Ge
+set('z',z_center); set('z span',z_span*1.5);
+
+addobject("CW_generation");
+set('name','generation_rate'); 
+set('x span',ge_width_x_bottom+0.04e-6); set("x",0);
+set('y span',y_span+4e-6); set("y", y_center_region);
+set('z span',ge_thickness+0.04e-6); # generation rate, slightly larger than Ge
+set('z', z_ge);
+set("export filename", generation_filename);
+set("periods", 1);
+set("average dimension", "y");
+set("source intensity", 6e7);  # power*sourceintensity(f)/sourcepower(f)
+set("make plots", 1);
+set("down sample x", 1);
+set("down sample y", 1);
+set("down sample z", 1);
+
+# run simulation
+save("vpd");
+run;
+
+runanalysis;
+
+# Field profiles:
+
+xy_x=pinch(getdata('xy','x'));
+xy_y=pinch(getdata('xy','y'));
+xy_E=pinch(abs(getdata('xy','Ex')));
+image(xy_x,xy_y,xy_E);
+
+xy2_x=pinch(getdata('xy2','x'));
+xy2_y=pinch(getdata('xy2','y'));
+xy2_E=pinch(abs(getdata('xy2','Ex')));
+image(xy2_x,xy2_y,xy2_E);
+
+yz_y=pinch(getdata('yz','y'));
+yz_z=pinch(getdata('yz','z'));
+yz_E=pinch(abs(getdata('yz','Ex')));
+image(yz_y,yz_z,yz_E);
+
+xz_x=pinch(getdata('xz','x'));
+xz_z=pinch(getdata('xz','z'));
+xz_E=pinch(abs(getdata('xz','Ex')));
+image(xz_x,xz_z,xz_E);
+
+matlabsave('vpd');
+

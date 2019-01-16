@@ -1,0 +1,83 @@
+# Parameter definitions for the detector, used for electrical calculations in DEVICE and optical calculations in FDTD
+clear;
+
+unfold_sim = 1;
+
+# define the structure including the contacts
+si_1_thickness = 0.22e-6;
+si_1_width_y_min = 1e-6;
+si_1_width_y_max = 70e-6;
+si_1_width_x = 20e-6;
+si_z=0.11e-6;
+
+si_2_thickness = 0.22e-6;
+si_2_width_y_min = -2e-6;
+si_2_width_y_max = 1e-6;
+si_2_width_x = 7e-6;
+
+ge_thickness = 0.5e-6;
+ge_width_y_top = 52.65e-6;
+ge_width_y_bottom = 53.65e-6;
+ge_width_x_top = 7e-6;
+ge_width_x_bottom = 8e-6;
+ge_y=27.825e-6;
+oxide_thickness = 10e-6;
+oxide_width_y = 75e-6;
+oxide_width_x = 20e-6;
+contact_thickness = 0.1e-6;
+contact_width_y_top = 72e-6;
+contact_width_y_bottom = 72e-6;
+contact_width_x_top = 1.4e-6;
+contact_width_x_bottom = 1e-6;
+contact_y=37.625e-6;
+
+# define doping
+center_pepi = 0.35e-6;		# pepi doping
+thick_pepi = 0.9e-6;
+pepi_concentration= 1e+016;
+
+x_center_p_contact = 0e-6;	# contact doping	
+x_span_p_contact = 10e-6;
+z_center_p_contact = 0.24495e-6;
+z_span_p_contact = 0.0501e-6;
+diff_dist_fcn_contact = 1; # 0 for erfc, 1 for gaussian
+face_p_contact = 4; # lower z
+width_junction_p_contact = 0.05e-6;
+surface_conc_p_contact = 3.2e15*1e6;
+reference_conc_p_contact = 1e8*1e6;
+
+x_center_n_contact = 0e-6;
+x_span_n_contact = 2e-6;
+z_center_n_contact = 0.67e-6;
+z_span_n_contact = 0.100001e-6;
+face_n_contact = 5; # upper z
+width_junction_n_contact = 0.1e-6;
+surface_conc_n_contact = 1e18*1e6;
+reference_conc_n_contact = 1e3*1e6;
+
+# define simulation region
+min_edge_length = 0.02e-6;
+max_edge_length = 4e-6;
+x_center = 0; x_span = 10e-6;
+y_center = 35e-6; y_span = 51e-6; # irrelevant for 2D cross section
+z_center = 0.25e-6; z_span = 1.5e-6;
+y_center_region=24.5e-6;
+x_center_region=x_center;
+z_min_region=0.1e-6;
+z_max_region=1e-6;
+
+#simulation parameters
+norm_length= 50e-6;
+abs_lte_limit= 0.001;
+rel_lte_limit= 0.001;
+transient_max_time_step= 10e-12; 
+transient_min_time_step= 100e-15; 
+transient_sim_time_max=1e-9;
+shutter_mode = "step on";
+shutter_ton=transient_min_time_step;
+shutter_tslew= 0;
+solver_type = "newton";
+generation_filename="Vpd_generation.mat";
+generation_filename_transient="Vpd_generation_100uA.mat";
+generation_filename_responsivity="Vpd_generation_1mA.mat";
+lambda= 1.55e-6;

@@ -1,0 +1,67 @@
+# wg_PIN.lsf - draw the PIN waveguide geometry in Lumerical MODE
+new(1);
+wg_2D_draw;
+
+wavelength=1550e-9;
+
+#N=5e20; P=1.9e20; # N++/ P++
+#N=3e18; P=2e18;  # N+ / P+
+N=5e17; P=7e17;  # N  / P
+alphaN_m = 3.52e-6*wavelength^2*N*100;
+alphaP_m = 2.4e-6*wavelength^2*P*100;
+k_P = wavelength * alphaP_m /4/pi;
+k_N = wavelength * alphaN_m /4/pi;
+
+matP = "P++";
+temp = addmaterial("(n,k) Material");
+setmaterial(temp, "name",matP);
+setmaterial(matP, "Refractive Index", 3.47);
+setmaterial(matP, "Imaginary Refractive Index", k_P);
+
+matN = "N++";
+temp = addmaterial("(n,k) Material");
+setmaterial(temp, "name",matN);
+setmaterial(matN, "Refractive Index", 3.47);
+setmaterial(matN, "Imaginary Refractive Index", k_N);
+
+# draw P++ doping
+addrect; set("name", "P++"); set("material", matP);
+set("y min", 0.8e-6);        set("y max", Ymax);
+set("z min", 0);    set("z max", thick_Slab);
+set("x min", Xmin); set("x max", Xmax);
+
+# draw N++ doping
+addrect; set("name", "N++"); set("material", matN);
+set("y max", -0.8e-6);        set("y min", -Ymax);
+set("z min", 0);    set("z max", thick_Slab);
+set("x min", Xmin); set("x max", Xmax);
+
+# define simulation parameters
+meshsize      = 20e-9;   # maximum mesh size
+
+# add 2D mode solver (waveguide cross-section)
+addfde;  set("solver type", "2D X normal");
+set("x", 0);  
+set("y", 0);         set("y span", Y_span);
+set("z max", Zmax);  set("z min", Zmin);
+set("wavelength", wavelength);   set("solver type","2D X normal");
+set("define y mesh by","maximum mesh step"); set("dy", meshsize);
+set("define z mesh by","maximum mesh step"); set("dz", meshsize);
+set("number of trial modes",1);
+
+# define parameters to sweep
+doping_offset_list=[0:.1:1.5]*1e-6; # sweep doping offset
+
+select("FDE");  set("solver type","2D X normal");  # 2D mode solver
+loss = matrix (length(doping_offset_list) );
+
+for(ii=1:length(doping_offset_list))  {
+  switchtolayout;
+  setnamed("P++","y min", doping_offset_list(ii)+width_ridge/2);
+  setnamed("N++","y max", -doping_offset_list(ii)-width_ridge/2);
+  n=findmodes;
+  loss(ii) =( getdata ("FDE::data::mode1","loss") ); # dB/m
+}
+
+plot (doping_offset_list, loss/100,"Doping offset","Excess Loss [dB/cm]", "","log10y");
+matlabsave ('wg_PIN_low', doping_offset_list, loss);

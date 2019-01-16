@@ -1,0 +1,60 @@
+# MODE Solutions script
+#   do mode overlap calculations of gaussian beams with FDTD field
+
+new; cleardcard;
+FILE = "nanotaper";
+loaddata(FILE);
+addfde;
+
+NA_list=0.1:0.02:0.9;
+PLOT_misalignment = 0;
+PLOT_modeprofiles = 0;
+Polarization = 0;  # 0=TE, 90=TM;
+
+wg_list=[180e-9];
+t_list=[220e-9];
+lambda_list=c/getdata('output','f');
+
+write ('edgecoupler_FDTD.txt','FILE, WG_w, WG_t, Wavelength, Best NA, Best coupling');
+for (l=1:length(t_list)) {
+	for (k=1:length(wg_list)) {
+		for (j=1:length(lambda_list)) {
+			setanalysis('wavelength',lambda_list(j) );
+			setanalysis('sample span',6e-6);
+			setanalysis('number of plane waves', 200);
+			edge_coupling=matrix(length(NA_list),1);
+			gaussianbeams=matrix(length(NA_list)*2,1);
+			setanalysis('polarization angle',Polarization); 
+			setanalysis('beam direction','2D X normal');
+			for (i=1:length(NA_list))  {
+				setanalysis('NA',NA_list(i));	
+				beam_name=createbeam; 
+				cou=overlap('output','gaussian'+num2str(i),0,t_list(l)/2,0); 
+				?edge_coupling(i)=cou(2);   # power coupling		
+			}
+			plot(NA_list, 10*log10(edge_coupling),'Lens NA', 'Coupling efficiency (dB)', FILE); 
+			setplot ('y min', max ([ min( 10*log10(edge_coupling)), -4] )   );
+			setplot ('y max',0);
+			exportfigure(FILE+'(dB).jpg');
+
+			best_coupling = max(10*log10(edge_coupling)); pos=find(10*log10(edge_coupling), best_coupling); best_NA = NA_list(pos);
+			
+			# calculate the fibre misalignment sensitivity
+			if (PLOT_misalignment) {
+				xlist=[-2:.1:2]*1e-6;
+				x_misalign=matrix(length(xlist)); 
+				y_misalign=matrix(length(xlist));
+				for (m=1:length(xlist)) {
+					cou=overlap('output','gaussian'+num2str(i), xlist(m), t_list(l)/2,0); x_misalign(m)=cou(2);
+					cou=overlap('output','gaussian'+num2str(i), 0, t_list(l)/2+xlist(m),0); y_misalign(m)=cou(2);
+				}	
+				plot (xlist, x_misalign,y_misalign);
+				legend('x_misalign','y_misalign');		
+			}
+			matlabsave ( FILE + '.mat' );
+			write (FILE+'.txt',FILE+ ', '+num2str(wg_list(k)*1e9)+', '+num2str(t_list(l)*1e9)+', '+ num2str(lambda_list(j)*1e6) +', ' + num2str(best_NA)+', '+num2str(best_coupling)   );
+		}
+	}
+}
+
+

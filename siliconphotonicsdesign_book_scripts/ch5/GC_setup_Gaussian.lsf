@@ -1,0 +1,61 @@
+# 2D Grating Coupler Model with Gaussian input
+
+GC_draw;  # Draw GC
+
+# add simulation region;
+addfdtd;
+set('dimension','2D');
+set('x max',15e-6);
+set('x min',-6e-6);
+set('y min',-(thick_BOX+0.2e-6));
+set('y max',thick_Clad+2e-6);
+set('mesh accuracy',mesh_accuracy);
+set('simulation time',simulation_time);
+
+# add monitor;
+addpower;
+set('name','T');
+set('monitor type','2D X-normal');
+set('x',-5e-6);
+set('y',0.5*thick_Si);
+set('y span',1e-6);
+
+# add waveguide mode expansion monitor
+addmodeexpansion;
+set('name','waveguide');
+set('monitor type','2D X-normal');
+setexpansion('T','T');
+set('x',-5e-6);
+set('y',0.5*thick_Si);
+set('y span',1e-6);
+
+# add Gaussian mode
+addgaussian;
+set('name','fibre');
+set('injection axis','y');
+set('x',Position);
+set('x span', 16e-6);
+set('direction','Backward');
+set('y',thick_Clad+1e-6);
+
+if(polarization=='TE'){
+  set('polarization angle',90);
+}
+else{
+  set('polarization angle',0);
+}
+
+set('angle theta',-theta0);
+set('center wavelength',lambda);
+set('wavelength span',wl_span);
+set('waist radius w0',4.5e-6);
+set('distance from waist',10e-6);
+
+# global properties
+setglobalmonitor('frequency points',frequency_points);
+setglobalmonitor('use linear wavelength spacing',1);
+setglobalmonitor('use source limits',1);
+setglobalsource('center wavelength',lambda);
+setglobalsource('wavelength span',wl_span);
+
+save('GC_Gaussian');

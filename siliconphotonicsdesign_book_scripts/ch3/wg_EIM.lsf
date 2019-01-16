@@ -1,0 +1,30 @@
+# wg_EIM.lsf - setup the Lumerical MODE 1D simulation for Effective index method
+
+wg_2D_draw;                # draw the waveguide
+
+material_Si   = "<Object defined dielectric>";
+select("waveguide");
+set("material",material_Si);
+set("index", 2.845);   # effective index taken from the TE slab mode
+
+wavelength=1.55e-6;
+meshsize = 10e-9; # mesh size
+
+# add 1D mode solver (horizontal waveguide cross-section)
+addfde; set("solver type","1D Y:X prop");
+set("x", 0); set("z", 0.1e-6);
+set("y max", 1e-6); set("y min", -1e-6); 
+set("wavelength", wavelength);
+set("define y mesh by","maximum mesh step");
+set("dy", meshsize);
+modes=2; # modes to output
+set("number of trial modes",modes);
+
+n=findmodes;     # calculate the modes 
+for (m=1:modes) {
+	? neff=getdata ("FDE::data::mode"+num2str(m),"neff"); # display effective index
+	y=getdata("FDE::data::mode1","y");
+	E3=pinch(getelectric("FDE::data::mode"+num2str(m)));
+	plot(y,E3); # plot the mode profile
+	matlabsave("wg_EIM"+num2str(m));
+}
