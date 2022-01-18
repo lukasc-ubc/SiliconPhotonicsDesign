@@ -3,7 +3,7 @@
 wg_2D_draw;   # run script to draw the waveguide
 
 # define simulation parameters
-wavelength    = 1.55e-6;   
+wavelength    = 1.31e-6;   
 meshsize      = 20e-9;       # maximum mesh size
 modes         = 4;           # modes to output
 
