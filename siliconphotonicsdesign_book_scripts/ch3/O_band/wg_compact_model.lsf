@@ -1,0 +1,29 @@
+# Create a waveguide compact model
+# use MODE FDE simulation data (neff)
+# curve fit to a polynomial
+
+# Get the data from the MODE frequency sweep
+lambda=c/getdata("FDE::data::frequencysweep","f")*1e6; # lambda in [microns]
+
+neff=abs(getdata("FDE::data::frequencysweep","neff"));
+lambda0 = 1.31;  # central wavelength
+
+# Polynomial fitting. 
+x_fit = lambda-lambda0; # X vector 
+y_fit = neff;           # Y vector 
+n_fit = 2;              # order of the polynomial
+
+# Next 3 lines do polyfit. Inputs: x_fit, y_fit, n_fit. Outputs: a_fit.
+# Based on a linear algebra approach
+X_fit = matrix(length(x_fit),n_fit+1);
+for(i_fit=0:n_fit){ X_fit(1:length(x_fit),i_fit+1) = x_fit^i_fit; }
+a_fit = mult(mult(inv(mult(transpose(X_fit),X_fit)),transpose(X_fit)),y_fit);
+
+# Display the fit polynomial coefficients
+?a_fit;
+
+# This is the polynomial equation:
+Y_fit_result = a_fit(1) + a_fit(2)*(lambda-lambda0) + a_fit(3)*(lambda-lambda0)^2;
+
+plot (lambda, neff, Y_fit_result);  # plot the result
+

@@ -1,0 +1,21 @@
+# wg_2D_neff_sweep_wavelength.lsf - Calculate the wavelength dependence of waveguide's neff and ng
+
+wg_2D;  # draw waveguide
+
+run; mesh;
+setanalysis('wavelength',1.36e-6);
+findmodes; selectmode(1);   # find the fundamental mode
+
+setanalysis("track selected mode",1);
+setanalysis("number of test modes",5);
+setanalysis("detailed dispersion calculation",0);  # This feature is useful for higher-order dispersion.
+setanalysis('stop wavelength',1.26e-6);
+frequencysweep;    # perform sweep of wavelength and plot
+f=getdata("frequencysweep","f");
+neff=getdata("frequencysweep","neff");
+f_vg=getdata("frequencysweep","f_vg");
+ng=c/getdata("frequencysweep","vg");
+plot(c/f*1e6,neff,"Wavelength (um)", "Effective Index");
+plot(c/f_vg*1e6,ng,"Wavelength (um)", "Group Index");
+matlabsave ('wg_2D_neff_sweep_wavelength.mat',f, neff, f_vg, ng);
+

@@ -1,0 +1,67 @@
+# wg_2D_draw.lsf - draw the waveguide geometry in Lumerical MODE
+newmode; newmode; redrawoff;
+
+# define wafer and waveguide structure
+thick_Clad = 2.0e-6; 
+thick_Si   = 0.22e-6;
+thick_BOX  = 2.0e-6;
+thick_Slab = 0.09e-6;          # for rib waveguides
+thick_Slab = 0;                  # for strip waveguides
+width_ridge = 0.35e-6;            # width of the waveguide
+
+# define materials
+material_Clad = "SiO2 (Glass) - Const";
+material_BOX  = "SiO2 (Glass) - Const";
+material_Si   = "Si (Silicon) - Dispersive & Lossless";
+materials;     # run script to add materials
+
+# define simulation region
+width_margin  = 2.0e-6;	 # space to include on the side of the waveguide
+height_margin = 1.0e-6;  # space to include above and below the waveguide
+
+# calculate simulation volume
+# propagation in the x-axis direction; z-axis is wafer-normal
+Xmin = -2e-6;  Xmax = 2e-6; # length of the waveguide
+Zmin = -height_margin;  Zmax = thick_Si + height_margin;
+Y_span = 2*width_margin + width_ridge; Ymin = -Y_span/2;  Ymax = -Ymin;
+
+# draw cladding
+addrect; set("name","Clad");  set("material", material_Clad);
+set("y", 0);              set("y span", Y_span+1e-6);
+set("z min", 0);          set("z max", thick_Clad);
+set("x min", Xmin);       set("x max", Xmax);
+set("override mesh order from material database",1);
+set("mesh order",3);  # similar to "send to back", put the cladding as a background.
+set("alpha", 0.05);
+
+# draw buried oxide
+addrect; set("name", "BOX"); set("material", material_BOX);
+set("x min", Xmin);       set("x max", Xmax);
+set("z min", -thick_BOX); set("z max", 0);
+set("y", 0);              set("y span", Y_span+1e-6);
+set("alpha", 0.05);
+
+# draw silicon wafer
+addrect; set("name", "Wafer"); set("material", material_Si);
+set("x min", Xmin);       set("x max", Xmax);
+set("z max", -thick_BOX); set("z min", -thick_BOX-2e-6);
+set("y", 0);              set("y span", Y_span+1e-6);
+set("alpha", 0.1);
+
+# draw waveguide
+addrect; set("name", "waveguide"); set("material",material_Si);
+set("y", 0);        set("y span", width_ridge);
+set("z min", 0);    set("z max", thick_Si);
+set("x min", Xmin); set("x max", Xmax);
+
+# draw slab for rib waveguides
+addrect; set("name", "slab"); set("material",material_Si);
+if (thick_Slab==0) {
+ set("y min", 0);     set("y max", 0);
+} else { 
+ set("y", 0);         set("y span", Y_span+1e-6);
+}
+set("z min", 0);      set("z max", thick_Slab);
+set("x min", Xmin);   set("x max", Xmax);
+set("alpha", 0.2);
+
