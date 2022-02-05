@@ -18,8 +18,15 @@ Npoints = 10000;
 
 % from MODE calculations
 switch 1
-    case 1 % Strip waveguide; 500x220 nm
+    case 1 % Strip waveguide; 500x220 nm, TE, 1550 nm
+    	% neff_wavelength is the wavelength dependant effective index, found from MODE, in this case for a 500 nm waveguide at 1550 nm TE.
         neff_wavelength = @(w) 2.4379 - 1.1193 * (w*1e6-1.554) - 0.0350 * (w*1e6-1.554).^2; % 500x220 oxide strip waveguide
+	% dneff_width is the grating strength parameter, expressed as delta n (rather than kappa).
+	% it is defined as the grating strength relative to the 500 nm waveguide, e.g., for w = 490, the function returns the strength of the grating
+	% for a grating that alternates between 490 and 500.
+	% the TMM code below uses n2-n1, where n2 is the wider section (e.g., 510), and n1 is the narrower section (e.g., 490).
+	% note that this function was calculated using eigenmodes, which doesn't give the correct reflection coefficient or grating strength.
+	% a more accurate grating strength can be found from band structure simulations (e.g., FDTD Bloch mode approach), or experimental data.
         dneff_width = @(w) 10.4285*(w-0.5).^3 - 5.2487*(w-0.5).^2 + 1.6142*(w-0.5);
 end
 
