@@ -1,4 +1,6 @@
-# "Silicon Photonics Design"
+# Textbook:
+"Silicon Photonics Design – From Devices to Systems", by Lukas Chrostowski and Michael Hochberg, Cambridge Press 2015, https://doi.org/10.1017/CBO9781316084168
+
 
 Example scripts (Lumerical Solutions, Matlab, Mentor Graphics).
 
