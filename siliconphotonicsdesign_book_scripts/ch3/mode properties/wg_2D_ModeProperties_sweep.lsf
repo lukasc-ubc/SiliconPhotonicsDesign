@@ -1,0 +1,45 @@
+# wg_2D_ModeProperties_sweep.lsf
+
+# Calculate some waveguide properties, as a function of height:
+# 
+# - Effective Mode Area
+# - Optical confinement factor (based on energy density)
+# - Optical confinement factor (based on E-field intensity)
+
+
+
+
+wg_2D_draw;   # run script to draw the waveguide
+
+# define simulation parameters
+wavelength    = 1.55e-6;   
+meshsize      = 10e-9;       # maximum mesh size
+modeNum       = 1;           # modes to solve for
+
+# add 2D mode solver (waveguide cross-section)
+addfde;  set("solver type", "2D X normal");
+set("x", 0);  
+set("y", 0);         set("y span", Y_span);
+set("z max", Zmax);  set("z min", Zmin);
+set("wavelength", wavelength);   set("solver type","2D X normal");
+set("define y mesh by","maximum mesh step"); set("dy", meshsize);
+set("define z mesh by","maximum mesh step"); set("dz", meshsize);
+set("number of trial modes",modeNum);
+
+
+
+
+wg_heights = [0.2e-6, 0.3e-6];
+
+L=length(wg_heights);
+T=matrix(3,L);
+for(ii=1:L)
+{
+    switchtolayout;
+    select('waveguide');
+    set('z max', wg_heights(ii));
+    switchtolayout;
+    wg_2D_ModeProperties_function; # run the script to perform the simulation
+}
+
+
