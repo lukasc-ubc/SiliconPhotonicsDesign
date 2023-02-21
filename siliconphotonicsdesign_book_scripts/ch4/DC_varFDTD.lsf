@@ -1,0 +1,147 @@
+# Perform 2.5D var-FDTD simulations for the directional coupler
+
+# DC_GDS_import.lsf - Script to import GDS for 3D FDTD simulations in Lumerical Solutions
+
+newproject;
+filename = "DC.gds";   	cellname = "DC_0";
+
+# This script splits the directional coupler in half
+# and the coupling length can be adjusted:
+DC_length=10e-6;
+
+# Number of wavelength points
+points = 5; 
+
+Material_Clad = "SiO2 (Glass) - Const";
+Material_Ox  = "SiO2 (Glass) - Const";
+Material_Si   = "Si (Silicon) - Dispersive & Lossless";
+materials;     # run script to add materials
+
+Thickness_Si=0.22e-6;	Etch2=130e-9;
+
+FDTD_above=300e-9;	# Extra simulation volume added
+FDTD_below=300e-9;
+
+minvxWAFER=1e9; minvyWAFER=1e9; 
+maxvxWAFER=-1e9; maxvyWAFER=-1e9;  # design extent
+maxvzWAFER=Thickness_Si;
+
+# Waveguide     Si 220nm    
+n = gdsimport(filename, cellname, 1, Material_Si, 0, Thickness_Si);
+if (n==0) { delete; } else {
+    groupscope("::model::GDS_LAYER_1:0");
+    set("script","");
+    selectall;
+    set('material', Material_Si);
+    set('z span',Thickness_Si); 	 set('z',0);
+    selectpartial("poly");
+    minvx=1e9; minvy=1e9; maxvx=-1e9; maxvy=-1e9;
+    for (i=1:getnumber) {	# find the extent of this GDS layer.
+        v=get("vertices",i);	  a=size(v);
+        minvx = min ( [minvx, min( v(1:a(1), 1 ))]);
+        minvy = min ( [minvy, min( v(1:a(1), 2 ))]);
+        maxvx = max ( [maxvx, max( v(1:a(1), 1 ))]);
+        maxvy = max ( [maxvy, max( v(1:a(1), 2 ))]);
+    }
+    minvxWAFER = min ( [minvx, minvxWAFER]);	# save design extent
+    minvyWAFER = min ( [minvy-2.25e-6, minvyWAFER]);
+    maxvxWAFER = max ( [maxvx, maxvxWAFER]);
+    maxvyWAFER = max ( [maxvy+2.25e-6, maxvyWAFER]);
+    groupscope("::model");
+}
+
+addrect; set("name", "Oxide");  # Buried Oxide
+set("x min", minvxWAFER); set("y min", minvyWAFER);
+set("x max", maxvxWAFER); set("y max", maxvyWAFER);
+set("z min", -2e-6);	 set("z max", 0);
+set("material", Material_Ox);	 set("alpha",0.2);
+
+addrect; set("name", "Cladding");   # Cladding 
+set("x min", minvxWAFER); set("y min", minvyWAFER);
+set("x max", maxvxWAFER); set("y max", maxvyWAFER);
+set("z min", 0);	 set("z max", 2.3e-6);
+set("material", Material_Clad);	 set("alpha",0.1);
+set("override mesh order from material database", 1);
+set("mesh order", 4);	# make the cladding the background
+
+addvarfdtd;  # FDTD simulation volume
+set("x min", minvxWAFER+2e-6); set("y min", minvyWAFER+1.5e-6);
+set("x max", maxvxWAFER-2e-6); set("y max", maxvyWAFER-1.5e-6);
+set("z min", -FDTD_below);	 set("z max", maxvzWAFER+FDTD_above);
+set("mesh accuracy", 3);
+set("x min bc", "PML"); set("x max bc", "PML");
+set("y min bc", "metal"); set("y max bc", "PML");
+set("z min bc", "metal"); set("z max bc", "metal");
+
+
+setglobalsource("wavelength start",1500e-9);  
+setglobalsource("wavelength stop",1600e-9);
+setglobalmonitor("use source limits",0); 
+setglobalmonitor("frequency points",points);
+setglobalmonitor("wavelength center",1550e-9);	
+setglobalmonitor("wavelength span",200e-9);
+
+# add mode source:
+addmodesource; set("name", "source");
+set("injection axis", "x-axis"); 
+set("direction", "forward");
+set("y", 1e-6); set("y span", 1.5e-6); 
+set("x", -5e-6 - DC_length/2);
+updatesourcemode;
+
+# set slab mode position to be in the waveguide:
+select("varFDTD");
+set("x0", -5e-6 - DC_length/2);
+set("y0", 1e-6);
+
+addpower;
+set("name", "through"); 
+set("monitor type", "2D X-normal"); 
+set("y", 1e-6); set("y span", 1.4e-6); 
+set("x", 5e-6 + DC_length/2);
+
+addpower;
+set("name", "cross"); 
+set("monitor type", "2D X-normal"); 
+set("y", -1e-6); set("y span", 1.4e-6); 
+set("x", 5e-6 + DC_length/2);
+
+
+switchtolayout;
+
+# stretch the coupler both to the left and right (keep symmetric at x=0)
+select("source");   set("x", -5e-6 - DC_length/2);
+select("through");  set("x", 5e-6 + DC_length/2);
+select("cross");    set("x", 5e-6 + DC_length/2);
+select("Oxide");
+set("x min", minvxWAFER-DC_length/2); set("x max", maxvxWAFER+ DC_length/2); 
+select("Cladding");
+set("x min", minvxWAFER-DC_length/2); set("x max", maxvxWAFER+ DC_length/2); 
+select("varFDTD");
+set("x min", minvxWAFER+2e-6-DC_length/2);  set("x max", maxvxWAFER-2e-6+DC_length/2);
+addprofile;
+set("name","Field Profile Monitor");
+set("x min", minvxWAFER+2e-6-DC_length/2);  set("x max", maxvxWAFER-2e-6+DC_length/2);
+set("y min", minvyWAFER+1.5e-6); set("y max", maxvyWAFER-1.5e-6);
+groupscope("GDS_LAYER_1:0");  selectall;
+set("x",-DC_length/2,1);  set("x",-DC_length/2,2);
+set("x", DC_length/2,3);  set("x", DC_length/2,4);
+groupscope("::model");
+
+addrect; set("name", "wg1");
+set("x min", -DC_length/2); set("y min", 0.1e-6);
+set("x max",  DC_length/2); set("y max", 0.6e-6);
+set("z min", 0);  set("z max", Thickness_Si);
+set("material", Material_Si);
+
+addrect; set("name", "wg2");
+set("x min", -DC_length/2); set("y max", -0.1e-6);
+set("x max",  DC_length/2); set("y min", -0.6e-6);
+set("z min", 0);  set("z max", Thickness_Si);
+set("material", Material_Si);
+
+save("DC_"+num2str(DC_length)+"_FDTD.fsp");
+run;
+
+?"Tthrough: " + num2str(transmission("through"));
+?"Tcross:   " + num2str(transmission("cross"));

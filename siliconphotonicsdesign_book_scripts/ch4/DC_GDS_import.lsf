@@ -20,7 +20,7 @@ maxvzWAFER=Thickness_Si;
 # Waveguide     Si 220nm    
 n = gdsimport(filename, cellname, 1, Material_Si, 0, Thickness_Si);
 if (n==0) { delete; } else {
-	groupscope("::model::GDS_LAYER_1");
+	groupscope("::model::GDS_LAYER_1:0");
 	set("script","");
 	selectall;
 	set('material', Material_Si);
