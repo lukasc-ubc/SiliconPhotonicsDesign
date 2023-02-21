@@ -1,0 +1,82 @@
+# Mach-Zehnder Interferometer in Lumerical INTERCONNECT
+# with phase shifter
+# by Lukas Chrostowski
+
+# directional coupler splitting ratio
+ratio = 0.49;
+# waveguide lengths
+length1 = 100e-6;
+length2 = 110e-6;
+# Phase shift
+phase = pi/2 + pi/4;
+
+switchtolayout;
+deleteall;
+
+# Add Optical Network Analyser 
+addelement('Optical Network Analyzer');
+set('x position', 200);
+set('y position', 100);
+set('input parameter', 'center and range');
+set('center frequency', 193.1e12);
+set('frequency range', 10000e9); 
+set('plot kind', 'wavelength');
+set('relative to center', false);
+set('number of input ports', 2);
+set('name', 'Optical Network Analyzer');
+
+# Add directional couplers
+addelement('Waveguide Coupler');
+set('x position',300);
+set('y position',400);
+set('coupling coefficient 1', ratio);
+set('name', 'Directional Coupler 1');
+annotateproperty('Directional Coupler 1', 'coupling coefficient 1', true);
+annotateproperty('Directional Coupler 1', 'insertion loss', true);
+
+copy(500,0);
+set('name','Directional Coupler 2');
+
+# Add waveguides
+addelement('Straight Waveguide');
+set('x position', 500);
+set('y position', 350);
+# rotateelement(elementName);
+set('length', length1);
+set('loss 1', 300);
+set('effective index 1', 2.4);  
+set('group index 1', 4.2); 
+set('name','WG1');
+
+copy(0,100);
+set('name','WG2');
+set('length', length2);
+
+# Add thermo-optic phase shifter
+addelement('Optical Phase Shift');
+set('name','Optical Phase Shifter');
+set('x position', 650);
+set('y position', 465);
+set('phase shift', phase);
+
+
+connect('WG1', 0, 'Directional Coupler 1', 2);
+connect('WG2', 0, 'Directional Coupler 1', 3);
+connect('WG1', 1, 'Directional Coupler 2', 0);
+connect('WG2', 1, 'Optical Phase Shifter', 0);
+connect('Optical Phase Shifter', 1, 'Directional Coupler 2', 1);
+connect('Optical Network Analyzer', 0, 'Directional Coupler 1', 0);
+connect('Optical Network Analyzer', 1, 'Directional Coupler 2', 3);
+connect('Optical Network Analyzer', 2, 'Directional Coupler 2', 2);
+
+run;
+
+t1=getresult("Optical Network Analyzer", "input 1/mode 1/gain");
+t2=getresult("Optical Network Analyzer", "input 2/mode 1/gain");
+wvl1= t1.getparameter('wavelength');
+t1= t1.getattribute("TE gain (dB)");
+t2= t2.getattribute("TE gain (dB)");
+
+plot(wvl1*1e6,t1,t2,'Wavelength [microns]','Amplitude [dB]','Transmission Spectrum');
+legend('Output 1','Output 2');
+
