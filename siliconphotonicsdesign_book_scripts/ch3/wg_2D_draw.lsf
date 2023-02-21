@@ -5,8 +5,8 @@ newmode; newmode; redrawoff;
 thick_Clad = 2.0e-6; 
 thick_Si   = 0.22e-6;
 thick_BOX  = 2.0e-6;
+# thick_Slab = 0.09e-6;          # for rib waveguides
 thick_Slab = 0;                  # for strip waveguides
-thick_Slab = 0.09e-6;          # for rib waveguides
 width_ridge = 0.5e-6;            # width of the waveguide
 
 # define materials

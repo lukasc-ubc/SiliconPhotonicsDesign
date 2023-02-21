@@ -1,21 +1,65 @@
 # wg_2D_neff_sweep_wavelength.lsf - Calculate the wavelength dependence of waveguide's neff and ng
+# by Lukas Chrostowski
 
-wg_2D;  # draw waveguide
+# draw waveguide
+wg_2D;  
 
+# solve for the modes of the waveguide
 run; mesh;
 setanalysis('wavelength',1.6e-6);
-findmodes; selectmode(1);   # find the fundamental mode
+findmodes; 
+# select the fundamental mode
+selectmode(1);   
 
+# configure a sweep versus wavelength
 setanalysis("track selected mode",1);
 setanalysis("number of test modes",5);
 setanalysis("detailed dispersion calculation",0);  # This feature is useful for higher-order dispersion.
 setanalysis('stop wavelength',1.5e-6);
-frequencysweep;    # perform sweep of wavelength and plot
+
+# perform sweep of wavelength and plot
+frequencysweep;    
 f=getdata("frequencysweep","f");
 neff=getdata("frequencysweep","neff");
 f_vg=getdata("frequencysweep","f_vg");
 ng=c/getdata("frequencysweep","vg");
 plot(c/f*1e6,neff,"Wavelength (um)", "Effective Index");
 plot(c/f_vg*1e6,ng,"Wavelength (um)", "Group Index");
+
+# save the data
 matlabsave ('wg_2D_neff_sweep_wavelength.mat',f, neff, f_vg, ng);
+
+
+# curve fit, as a Taylor expansion, at lambda0
+lambda0 = 1.55e-6;  # central wavelength, [m]
+
+# Get the data from the MODE frequency sweep
+lambda=c/getdata("FDE::data::frequencysweep","f"); 
+neff=abs(getdata("FDE::data::frequencysweep","neff"));
+
+# Polynomial fitting. 
+x_fit = lambda-lambda0; # X vector 
+y_fit = neff;           # Y vector 
+n_fit = 2;              # order of the polynomial
+
+# Next 3 lines do polyfit. Inputs: x_fit, y_fit, n_fit. Outputs: a_fit.
+# Based on a linear algebra approach
+X_fit = matrix(length(x_fit),n_fit+1);
+for(i_fit=0:n_fit){ X_fit(1:length(x_fit),i_fit+1) = x_fit^i_fit; }
+a_fit = mult(mult(inv(mult(transpose(X_fit),X_fit)),transpose(X_fit)),y_fit);
+
+# Display the fit polynomial coefficients
+? "Fit function for effective index: neff(lambda) = a1 + a2*(lambda-lambda0) + a3*(lambda-lambda0)^2";
+? a_fit;
+
+# Plot the fit polynomial:
+Y_fit_result = a_fit(1) + a_fit(2)*(lambda-lambda0) + a_fit(3)*(lambda-lambda0)^2;
+plot (lambda, neff, Y_fit_result);  # plot the result
+
+# convert to group index and dispersion
+? "Effective index: " + num2str(a_fit(1));
+ng = a_fit(1) - a_fit(2) * lambda0;
+? "Group index: " + num2str(ng);
+D = -lambda0 / c * 2 * a_fit(3);
+? "Dispersion [s/m^2]: " + num2str(D);
 
