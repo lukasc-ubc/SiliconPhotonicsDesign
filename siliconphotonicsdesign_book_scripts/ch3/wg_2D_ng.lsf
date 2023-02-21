@@ -1,0 +1,75 @@
+# wg_2D_ng.lsf - Calculate the wavelength dependence of waveguide's neff and ng
+
+wg_2D_draw;   # run script to draw the waveguide
+
+# define simulation parameters
+wavelength    = 1.55e-6;   
+meshsize      = 20e-9;       # maximum mesh size
+modeNum       = 2;           # modes to solve for
+    # find the 2nd mode (TM)
+
+# add 2D mode solver (waveguide cross-section)
+addfde;  set("solver type", "2D X normal");
+set("x", 0);  
+set("y", 0);         set("y span", Y_span);
+set("z max", Zmax);  set("z min", Zmin);
+set("wavelength", wavelength);   set("solver type","2D X normal");
+set("define y mesh by","maximum mesh step"); set("dy", meshsize);
+set("define z mesh by","maximum mesh step"); set("dz", meshsize);
+set("number of trial modes",modeNum);
+
+run; mesh;
+setanalysis('wavelength',wavelength);
+findmodes; selectmode(modeNum);  
+
+setanalysis("track selected mode",1);
+setanalysis("number of test modes",1);
+setanalysis("detailed dispersion calculation",1);  # This feature is useful for higher-order dispersion.
+setanalysis('stop wavelength',wavelength);
+setanalysis("number of points",1);
+frequencysweep;    # perform sweep of wavelength and plot
+f=getdata("frequencysweep","f");
+neff=getdata("frequencysweep","neff");
+f_vg=getdata("frequencysweep","f_vg");
+ng=c/getdata("frequencysweep","vg");
+?'ng = ' + num2str(ng);
+
+
+############
+# check if the field is close to zero at the boundaries
+# to ensure simulation results are valid
+############
+tol_E = 1e-6; # tolerance to check that field intensity is < tol_E
+
+mon="FDE::data::mode"+num2str(modeNum);
+E1 = pinch(getelectric(mon));
+y=getdata(mon,'y');
+z=getdata(mon,'z');  # thickness axis
+
+E_max = max(max(E1));
+E_top = max (pinch (E1, 2, length(z)) ) / E_max;  # max field at the top of simulation boundary
+E_bottom = max ( pinch (E1, 2, 1) ) / E_max;
+E_left = max ( pinch (E1, 1, 1) ) / E_max;
+E_right = max ( pinch (E1, 1, length(y)) ) / E_max;
+
+if ( E_top>tol_E ) {
+  ? 'Warning: Field intensity at the top of boundary is greater than specified tolerance, ' + num2str(tol_E);
+  ? 'E_top = ' +num2str(E_top);
+  ? 'Increase the simulation size accordingly.';
+}
+if ( E_bottom>tol_E ) {
+  ? 'Warning: Field intensity at the bottom of boundary is greater than specified tolerance, ' + num2str(tol_E);
+  ? 'E_bottom = ' +num2str(E_bottom);
+  ? 'Increase the simulation size accordingly.';
+}
+if ( E_left>tol_E ) {
+  ? 'Warning: Field intensity at the left of boundary is greater than specified tolerance, ' + num2str(tol_E);
+  ? 'E_left = ' +num2str(E_left);
+  ? 'Increase the simulation size accordingly.';
+}
+if ( E_right>tol_E ) {
+  ? 'Warning: Field intensity at the right of boundary is greater than specified tolerance, ' + num2str(tol_E);
+  ? 'E_right = ' +num2str(E_right);
+  ? 'Increase the simulation size accordingly.';
+}
+
