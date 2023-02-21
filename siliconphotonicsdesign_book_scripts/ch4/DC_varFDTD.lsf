@@ -143,5 +143,13 @@ set("material", Material_Si);
 save("DC_"+num2str(DC_length)+"_FDTD.fsp");
 run;
 
+
+
 ?"Tthrough: " + num2str(transmission("through"));
 ?"Tcross:   " + num2str(transmission("cross"));
+
+# Plot
+wavelengths = c/getdata("Field Profile Monitor","f");
+plot (wavelengths, transmission("through"), transmission("cross"),"Wavelength","Coupling Power" ); 
+legend("Through","Cross");
+
