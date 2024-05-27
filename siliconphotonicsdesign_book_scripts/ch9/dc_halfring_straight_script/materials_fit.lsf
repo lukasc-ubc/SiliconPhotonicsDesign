@@ -1,0 +1,13 @@
+
+material_Si = "Si (Silicon) - Palik";
+
+material_Si = copymaterial(material_Si);
+?setmaterial(material_Si);
+setmaterial(material_Si, "specify fit range", 1);
+setmaterial(material_Si, "wavelength min", 1.1e-6);
+setmaterial(material_Si, "wavelength max", 1.9e-6);
+
+setmaterial(material_Si, "tolerance", 0.001);
+setmaterial(material_Si, "max coefficients", 2);
+
+
