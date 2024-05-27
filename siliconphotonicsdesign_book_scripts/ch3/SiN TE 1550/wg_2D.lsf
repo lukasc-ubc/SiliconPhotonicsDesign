@@ -1,0 +1,18 @@
+# wg_2D.lsf - set up the mode profile simulation solver
+
+wg_2D_draw;   # run script to draw the waveguide
+
+# define simulation parameters
+wavelength    = 1.55e-6;   
+meshsize      = 20e-9;       # maximum mesh size
+modes         = 4;           # modes to output
+
+# add 2D mode solver (waveguide cross-section)
+addfde;  set("solver type", "2D X normal");
+set("x", 0);  
+set("y", 0);         set("y span", Y_span);
+set("z max", Zmax);  set("z min", Zmin);
+set("wavelength", wavelength);   set("solver type","2D X normal");
+set("define y mesh by","maximum mesh step"); set("dy", meshsize);
+set("define z mesh by","maximum mesh step"); set("dz", meshsize);
+set("number of trial modes",modes);

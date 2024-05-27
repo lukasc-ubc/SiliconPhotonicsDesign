@@ -1,0 +1,20 @@
+# bend_top_field.lsf  - simulate a bend, observe the top-view field profile
+
+bend_radius = 1e-6;    # 1 micron bend radius
+bend_draw;             # Call script to draw the bent waveguide
+bend_FDTD_setup;       # setup the FDTD simulations
+
+addpower;   # Power monitor, top-view
+set('name', 'top');
+set('monitor type', '2D Z-normal');
+set('x min', Xmin);   set('x max', Xmax);
+set('y min', Ymin);   set('y max', Ymax);
+set('z', thick_Si/2); # cross-section through the middle of the waveguide
+
+save('./out/bend_FDTD_top_field');
+run;
+
+X=getdata('top','x');  Y=getdata('top','y');
+I2=abs(getdata('top','Ex'))^2 + abs(getdata('top','Ey'))^2 + abs(getdata('top','Ez'))^2;  
+image(X,Y,I2);             # E-field intensity image plot
+image(X,Y,10*log10(I2));   # E-field intensity image plot

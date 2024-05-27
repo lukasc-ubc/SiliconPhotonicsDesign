@@ -1,0 +1,59 @@
+# bend_FDTD_setup.lsf - setup FDTD simulation for bend calculations
+
+wavelength=1.55e-6;
+Mode_Selection = 'fundamental TE mode';
+Mesh_level=1;  # Mesh of 3 is suitable for high accuracy  
+
+addfdtd;
+set('x min', Xmin); set('x max', Xmax);
+set('y min', Ymin); set('y max', Ymax);
+set('z min', Zmin);  set('z max', Zmax);
+set('mesh accuracy', Mesh_level);
+
+addmode;
+set('injection axis', 'y-axis');
+set('direction', 'forward');
+set('y', Ymin+100e-9); 
+set('x', 0); set('x span', width_ridge+width_margin);
+set('z min', Zmin); set('z max', Zmax);
+set('set wavelength',1);
+set('wavelength start', wavelength); 
+set('wavelength stop',wavelength); 
+set('mode selection', Mode_Selection);
+updatesourcemode; 
+
+addpower;   # Power monitor, output
+set('name', 'transmission');
+set('monitor type', '2D X-normal');
+set('y', length_input+bend_radius); 
+set('y span', width_ridge +width_margin);
+set('z min', Zmin); set('z max', Zmax);
+set('x', Xmax-0.5e-6);
+
+addmodeexpansion;
+set('name', 'expansion');
+set('monitor type', '2D X-normal');
+set('y', length_input+bend_radius); 
+set('y span', width_ridge +width_margin);
+set('z min', Zmin); set('z max', Zmax);
+set('x', Xmax-0.3e-6);
+set('frequency points',10);
+set('mode selection', Mode_Selection);
+setexpansion('T','transmission');
+
+addpower;   # Power monitor, input
+set('name', 'input');
+set('monitor type', '2D Y-normal');
+set('y', Ymin+500e-9);  set('x', 0);
+set('x span', width_ridge+width_margin);
+set('z min', Zmin);  set('z max', Zmax);
+
+if (0) {
+	addmovie;
+	set('name', 'movie');
+	set('lockAspectRatio', 1);
+	set('monitor type', '2D Z-normal');
+	set('x min', Xmin); set('x max', Xmax);
+	set('y min', Ymin); set('y max', Ymax);
+	set('z', 0.5*thick_Si);
+}
