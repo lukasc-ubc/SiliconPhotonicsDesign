@@ -14,7 +14,7 @@ if (TYPE == "Disconnected") {
 	wg_w1=500e-9; wg_w2=500e-9; wg_t=220e-9; wg_l=0.1e-6;  # disconnected waveguide
 }
 BC='Metal';  # Metal is faster than PML, error introduced is < 0.02 dB in coupling.
-Mode_sel = "TM";
+Mode_sel = "TE";
 Mode_Selection = 'fundamental '+Mode_sel+' mode';
 Wavelength=1.55e-6;
 WL_SPAN = 100e-9;
@@ -201,10 +201,10 @@ legend ('S11 (backreflection)');
 
 #export .xml and .sparam (individual file for s-params)
 n_ports = 4;
-mode_label = "TE";
+mode_label = Mode_sel;
 mode_ID = "1";
 input_type = "transmission";
-filename = "nanotaper_w1=" + num2str(wg_w1*1e9) + ",w2=" + num2str(wg_w2*1e9) + ",L=" +num2str(wg_l*1e6) + "_" + Mode_sel;
+filename = "nanotaper_w1=" + num2str(wg_w1*1e9) + ",w2=" + num2str(wg_w2*1e9) + ",L=" +num2str(wg_l*1e6) + "_" + Mode_sel + "_" + num2str(Wavelength*1e9) + "nm";
 
 if(fileexists(filename)) {rm(filename);} # old files with same name get deleted. 
 system('mkdir -p sparam_files'); file1="sparam_files/" + filename+".sparam";
@@ -212,7 +212,7 @@ if (fileexists(file1)) { rm(file1);} # delete Sparam file if it already exists
 
 # Sx1 Input on port 1
 S11_data=[f,abs(S11),unwrap(angle(S11))];
-write(file1,"('port 1','TE',1,'port 1',1,'transmission')"
+write(file1,"('port 1',model_label,1,'port 1',1,'transmission')"
        +endl+"("
        +num2str(length(f))
        +",3)"
